@@ -161,6 +161,20 @@ for path in (APP / "res").rglob("*.xml"):
     check("immich.giejay.nl" not in source and "authentication_url" not in source,
           f"{path.relative_to(ROOT)}: author relay resource remains")
 
+# Obsolete upstream promotional/service pointers must not return to this fork.
+for path in (ROOT / "README.md", ROOT / "README.upstream.md"):
+    source = text(path)
+    check(not re.search(r"buymeacoffee\.com|github\.com/giejay/Immich-Android-TV/(?:issues|pulls)|Immich-Android-TV-Authentication", source, re.I),
+          f"{path.name}: obsolete upstream promotion or service link remains")
+funding = ROOT / ".github/FUNDING.yml"
+check(not funding.exists() or "giejay" not in funding.read_text(encoding="utf-8").lower(),
+      "GitHub funding must not advertise the upstream author's donation account")
+for path in (APP / "res").glob("values*/strings.xml"):
+    resources = ET.fromstring(text(path))
+    check(not any(node.get("name", "") == "donate" or node.get("name", "").startswith("donation_")
+                  for node in resources.findall("string")),
+          f"{path.relative_to(ROOT)}: obsolete donation strings remain")
+
 if failures:
     print(f"FAIL: {len(failures)} privacy checks failed ({checks} checks)")
     for failure in failures:

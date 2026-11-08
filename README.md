@@ -77,6 +77,6 @@ python3 scripts/check_private_runtime.py
 
 ## 许可与来源
 
-主项目保留 [GPLv3 LICENSE](LICENSE)，内置 mediaslider 保留其 [Apache-2.0 LICENSE](mediaslider/LICENSE.md)，其他原始版权声明也保留。[README.upstream.md](README.upstream.md) 是上游资料存档，不代表本分支仍提供其中所有功能。
+主项目保留 [GPLv3 LICENSE](LICENSE)，内置 mediaslider 保留其 [Apache-2.0 LICENSE](mediaslider/LICENSE.md)，其他原始版权声明也保留。[README.upstream.md](README.upstream.md) 是经过删节的上游历史资料，仅保留来源与历史功能参考；旧募捐链接、作者服务和过时配置说明已移除，不代表本分支仍提供其中所有功能。
 
 分发 APK 时必须同时提供对应版本的完整源代码及构建说明，并遵守 GPLv3 与依赖许可。此为非官方个人分支，不是 Immich 官方电视客户端。

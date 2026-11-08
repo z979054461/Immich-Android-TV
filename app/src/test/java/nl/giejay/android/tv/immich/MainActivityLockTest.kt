@@ -179,6 +179,7 @@ class MainActivityLockTest {
         descendants(profile.requireView()).filterIsInstance<Button>()
             .first { it.contentDescription == "Test User" }.performClick()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
         val input = descendants(dialog.window!!.decorView).filterIsInstance<EditText>().first()
         input.setText("123456")
         val entered = CountDownLatch(1)

@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
@@ -143,6 +144,7 @@ class ProfileFragment : Fragment() {
             .setPositiveButton(R.string.profiles_unlock, null).create()
         dialog?.setOnDismissListener { input.text.clear(); pinInput = null }
         dialog?.show()
+        dialog?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         val unlockDialog = dialog!!
         val unlock = unlockDialog.getButton(AlertDialog.BUTTON_POSITIVE)
         unlock.setOnClickListener {
