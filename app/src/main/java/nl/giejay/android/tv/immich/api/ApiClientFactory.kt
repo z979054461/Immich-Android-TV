@@ -5,6 +5,7 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Dispatcher
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 object ApiClientFactory {
     // All profile media/API work shares one cancellation boundary.
@@ -22,6 +23,14 @@ object ApiClientFactory {
             }
             response
         }.build()
+
+    /** Large metadata buckets can take longer to start responding than a thumbnail.
+     * Bound only API calls: media streams must never inherit an overall playback deadline.
+     */
+    fun forApiSession(config: ApiClientConfig): OkHttpClient = forSession(config).newBuilder()
+        .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .build()
 
     /** Glide is process-global: read exactly one current connection for each image request. */
     fun forImages(): OkHttpClient = OkHttpClient.Builder().dispatcher(dispatcher)

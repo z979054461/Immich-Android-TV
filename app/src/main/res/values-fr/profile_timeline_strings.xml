@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="profiles_title">Qui regarde ?</string>
+  <string name="profiles_intro">Choisissez votre profil. Un code PIN local protège les photos à chaque réouverture.</string>
+  <string name="profiles_add">+ Ajouter un compte Immich</string>
+  <string name="profiles_name">Nom du profil (1 à 40 caractères)</string>
+  <string name="profiles_new_pin">Créer un code PIN de 6 à 12 chiffres</string>
+  <string name="profiles_confirm_pin">Confirmer le code PIN</string>
+  <string name="profiles_pin_invalid">Saisissez deux fois le même code de 6 à 12 chiffres.</string>
+  <string name="profiles_enter_pin">Saisir votre code PIN local</string>
+  <string name="profiles_unlock">Déverrouiller</string>
+  <string name="profiles_wrong_pin">Déverrouillage impossible. Vérifiez le code PIN. Après 5 tentatives, attendez 30 secondes ; les tentatives suivantes peuvent imposer jusqu’à 5 minutes.</string>
+  <string name="profiles_switch">Verrouiller / changer de profil</string>
+  <string name="profiles_remove">Supprimer le profil local</string>
+  <string name="profiles_remove_warning">Supprimer ce profil de ce téléviseur ? Les photos et le compte Immich ne seront pas supprimés. La clé API sera nécessaire pour le rajouter.</string>
+  <string name="profiles_recovery">Code PIN oublié ? Supprimez le profil local, puis ajoutez-le avec votre clé API. Ce code verrouille seulement le téléviseur, ce n’est pas le mot de passe Immich. L’économiseur photo en arrière-plan est désactivé ; l’aperçu reste disponible après déverrouillage.</string>
+  <string name="profiles_upgrade">Mise à jour de sécurité : ajoutez votre compte avec son adresse de serveur, sa clé API et un nouveau code PIN. Les photos du serveur restent inchangées.</string>
+  <string name="timeline_retry">Réessayer la chronologie</string>
+  <string name="timeline_empty">Aucune photo dans cette chronologie. Vérifiez la photothèque visible du compte et les paramètres de partage avec un partenaire.</string>
+  <string name="timeline_permission_error">Accès refusé à la chronologie. Cette clé API nécessite asset.read ; les miniatures nécessitent aussi asset.view.</string>
+  <string name="timeline_auth_error">Le serveur a refusé cette clé API. Vérifiez la connexion du compte, puis réessayez.</string>
+  <string name="timeline_load_error">Chargement impossible. Vérifiez la connexion, le certificat et la version d’Immich, puis réessayez. Les photos déjà chargées sont conservées.</string>
+  <string name="timeline_endpoint_error">Le serveur a renvoyé 404. Vérifiez son adresse, le routage API du proxy inverse et la prise en charge des périodes de chronologie par cette version d’Immich.</string>
+  <string name="timeline_version_error">Le serveur a refusé la requête de chronologie (400). Vérifiez la compatibilité de votre version d’Immich.</string>
+</resources>

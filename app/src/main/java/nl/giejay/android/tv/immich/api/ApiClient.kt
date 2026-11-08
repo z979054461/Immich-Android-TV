@@ -110,7 +110,7 @@ class ApiClient(private val config: ApiClientConfig) {
     }
 
     private val retrofit = Retrofit.Builder()
-        .client(ApiClientFactory.forSession(config))
+        .client(ApiClientFactory.forApiSession(config))
         .addConverterFactory(GsonConverterFactory.create())
         .baseUrl(ServerPolicy.apiBase(config.hostName))
         .build()

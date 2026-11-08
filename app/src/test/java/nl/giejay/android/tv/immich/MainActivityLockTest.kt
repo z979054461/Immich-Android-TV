@@ -97,8 +97,8 @@ class MainActivityLockTest {
         publish(ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
         val nav = host(activity).navController
         // Exercise real NavHost back-stack saving/clearing without loading a real home/photo screen.
-        (nav.graph.findNode(R.id.homeFragment) as FragmentNavigator.Destination).className =
-            SyntheticPhotoFragment::class.java.name
+        (nav.graph.findNode(R.id.homeFragment) as FragmentNavigator.Destination)
+            .setClassName(SyntheticPhotoFragment::class.java.name)
         nav.navigate(R.id.homeFragment)
         settle(activity)
         assertTrue(PreferenceManager.isLoggedId())

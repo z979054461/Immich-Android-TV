@@ -99,7 +99,7 @@ check("@Volatile private var activeConnection" in prefs and
       "Connection host and key must be published as one volatile immutable snapshot")
 api = without_comments(text(KOTLIN / "api/ApiClient.kt"))
 check("fun fromPrefs(): ApiClientConfig = PreferenceManager.connectionSnapshot()" in api and
-      "ApiClientFactory.forSession(config)" in api,
+      "ApiClientFactory.forApiSession(config)" in api,
       "API clients must consume snapshot-bound guarded transport")
 for path in KOTLIN.rglob("*.kt"):
     if path.name in ("ApiClient.kt", "PreferenceManager.kt", "ApiClientFactory.kt"):

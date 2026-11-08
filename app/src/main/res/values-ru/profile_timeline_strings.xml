@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="profiles_title">Кто смотрит?</string>
+  <string name="profiles_intro">Выберите профиль. Локальный PIN-код защищает фотографии при каждом открытии приложения.</string>
+  <string name="profiles_add">+ Добавить аккаунт Immich</string>
+  <string name="profiles_name">Название профиля (1–40 символов)</string>
+  <string name="profiles_new_pin">Создайте PIN-код из 6–12 цифр</string>
+  <string name="profiles_confirm_pin">Подтвердите PIN-код</string>
+  <string name="profiles_pin_invalid">Введите одинаковый PIN-код из 6–12 цифр дважды.</string>
+  <string name="profiles_enter_pin">Введите локальный PIN-код</string>
+  <string name="profiles_unlock">Разблокировать</string>
+  <string name="profiles_wrong_pin">Не удалось разблокировать. Проверьте PIN-код. После 5 попыток подождите 30 секунд; дальнейшие попытки увеличивают ожидание до 5 минут.</string>
+  <string name="profiles_switch">Заблокировать / сменить профиль</string>
+  <string name="profiles_remove">Удалить локальный профиль</string>
+  <string name="profiles_remove_warning">Удалить этот профиль с телевизора? Фотографии и аккаунт на сервере Immich не будут удалены. Для повторного добавления потребуется API-ключ.</string>
+  <string name="profiles_recovery">Забыли PIN-код? Удалите локальный профиль и добавьте его снова с помощью API-ключа. PIN-код блокирует только приложение на телевизоре и не является паролем Immich. Фоновая фотозаставка отключена; предпросмотр доступен после разблокировки.</string>
+  <string name="profiles_upgrade">Обновление безопасности: добавьте аккаунт снова, указав адрес сервера, API-ключ и новый PIN-код. Фотографии на сервере не изменятся.</string>
+  <string name="timeline_retry">Повторить загрузку хронологии</string>
+  <string name="timeline_empty">В хронологии нет фотографий. Проверьте доступную библиотеку аккаунта и настройки партнёрского доступа.</string>
+  <string name="timeline_permission_error">Доступ к хронологии запрещён. API-ключу требуется asset.read, а для миниатюр также asset.view.</string>
+  <string name="timeline_auth_error">Сервер отклонил API-ключ. Проверьте подключение аккаунта и повторите попытку.</string>
+  <string name="timeline_load_error">Не удалось загрузить хронологию. Проверьте подключение, сертификат и версию Immich, затем повторите попытку. Загруженные фотографии сохранены.</string>
+  <string name="timeline_endpoint_error">Сервер вернул ошибку 404. Проверьте адрес, маршрутизацию API обратного прокси и поддержку периодов хронологии в этой версии Immich.</string>
+  <string name="timeline_version_error">Сервер отклонил запрос хронологии (400). Проверьте совместимость с вашей версией Immich.</string>
+</resources>

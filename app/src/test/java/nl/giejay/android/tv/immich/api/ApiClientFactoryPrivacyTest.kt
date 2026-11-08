@@ -199,6 +199,20 @@ class ApiClientFactoryPrivacyTest {
         assertEquals(1, allowed.requestCount)
     }
 
+    @Test fun apiTimeoutAllowsSlowBucketsWithoutLimitingVideoPlayback() {
+        val config = configuration()
+        publish(config)
+        val api = ApiClientFactory.forApiSession(config)
+        assertEquals(60_000, api.readTimeoutMillis)
+        assertEquals(90_000, api.callTimeoutMillis)
+        assertEquals(10_000, api.connectTimeoutMillis)
+        val media = ApiClientFactory.forSession(config)
+        assertEquals(0, media.callTimeoutMillis)
+        assertFalse(api.followRedirects)
+        assertFalse(api.followSslRedirects)
+        assertSame(api.dispatcher, media.dispatcher)
+    }
+
     @Test fun connectionStringNeverDisclosesOriginOrKey() {
         val config = configuration()
         assertFalse(config.toString().contains(config.apiKey))
