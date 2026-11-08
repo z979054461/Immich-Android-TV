@@ -170,7 +170,7 @@ jobs:
             exit 1
           fi
           cat "$SIGN_DIR/verification.txt"
-          ACTUAL=$(sed -nE 's/^Signer.* certificate SHA-256 digest: ([[:xdigit:]:]+)[[:space:]]*$/\1/p' "$SIGN_DIR/verification.txt" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sort -u)
+          ACTUAL=$(sed -nE 's/^(V[0-9.]+ )?Signer.* certificate SHA-256 digest: ([[:xdigit:]:]+)[[:space:]]*$/\2/p' "$SIGN_DIR/verification.txt" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sort -u)
           EXPECTED=$(printf '%s' "$RELEASE_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
           [[ "$ACTUAL" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Expected exactly one unique APK signer SHA-256 digest"; exit 1; }
           [[ "$ACTUAL" = "$EXPECTED" ]] || { echo "::error::APK signer certificate does not match the pinned dedicated key"; exit 1; }
