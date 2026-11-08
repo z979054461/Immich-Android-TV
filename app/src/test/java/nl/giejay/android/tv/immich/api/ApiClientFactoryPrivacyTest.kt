@@ -21,6 +21,10 @@ class ApiClientFactoryPrivacyTest {
     private val key = "loopback-test-key"
     private lateinit var originalConnection: ApiClientConfig
 
+    private fun testDns(resolve: (String) -> List<InetAddress>): Dns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> = resolve(hostname)
+    }
+
     private fun publish(config: ApiClientConfig) {
         PreferenceManager.javaClass.getDeclaredField("activeConnection").apply {
             isAccessible = true
@@ -74,7 +78,7 @@ class ApiClientFactoryPrivacyTest {
 
     @Test fun rejectsForbiddenHostnameBeforeDnsResolution() {
         val lookups = AtomicInteger()
-        val http = client().newBuilder().dns(Dns {
+        val http = client().newBuilder().dns(testDns {
             lookups.incrementAndGet()
             listOf(InetAddress.getLoopbackAddress())
         }).build()
@@ -126,7 +130,7 @@ class ApiClientFactoryPrivacyTest {
         val initial = ApiClientConfig("http://session.invalid:2283", key, false, false)
         publish(initial)
         val lookups = AtomicInteger()
-        val http = ApiClientFactory.forSession(initial).newBuilder().dns(Dns {
+        val http = ApiClientFactory.forSession(initial).newBuilder().dns(testDns {
             lookups.incrementAndGet()
             listOf(InetAddress.getLoopbackAddress())
         }).build()
@@ -164,7 +168,7 @@ class ApiClientFactoryPrivacyTest {
     @Test fun imageClientRejectsRedirectsAndForbiddenDns() {
         publish(configuration())
         val lookups = AtomicInteger()
-        val http = ApiClientFactory.forImages().newBuilder().dns(Dns { host ->
+        val http = ApiClientFactory.forImages().newBuilder().dns(testDns { host ->
             lookups.incrementAndGet()
             Dns.SYSTEM.lookup(host)
         }).build()
