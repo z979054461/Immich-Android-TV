@@ -15,7 +15,7 @@ import retrofit2.Response
 class ApiUtilTest {
 
     @Test
-    fun `403 with required permission all body returns exact existing message and reads body once`(): Unit = runBlocking {
+    fun `403 requiring all recommends least privilege and reads body once`(): Unit = runBlocking {
         val mockBody = mock(ResponseBody::class.java)
         `when`(mockBody.string()).thenReturn("required permission: all")
 
@@ -28,7 +28,7 @@ class ApiUtilTest {
 
         assertTrue(result.isLeft())
         assertEquals(
-            "API key is missing the permission \"all\". Please adapt your permissions in the Immich web interface.",
+            "API key lacks a required permission. Grant only the read permissions needed by this screen.",
             (result as arrow.core.Either.Left).value
         )
         verify(mockBody, times(1)).string()
