@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="private_manual_setup">Подключитесь напрямую к своему серверу Immich. Введите его URL и отдельный ключ API с помощью пульта или клавиатуры. Сервис сопряжения не используется. При изменении настроек введите ключ API заново.</string>
+    <string name="private_invalid_server">Введите полный URL HTTP или HTTPS без учётных данных, пробелов, параметров запроса и фрагмента.</string>
+    <string name="private_http_warning_title">Незашифрованное соединение HTTP</string>
+    <string name="private_http_warning">При использовании HTTP любой, кто может перехватить соединение, сможет увидеть ключ API, фотографии и видео. Используйте HTTP только в доверенной частной локальной сети. Рекомендуется HTTPS. Продолжить с HTTP?</string>
+    <string name="private_save_failed">Не удалось безопасно сохранить подключение. Повторите попытку.</string>
+    <string name="private_disconnect">Отключиться и удалить сохранённое подключение</string>
+</resources>

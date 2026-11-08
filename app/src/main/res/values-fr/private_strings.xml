@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="private_manual_setup">Connectez-vous directement à votre propre serveur Immich. Saisissez son URL et une clé API dédiée avec la télécommande ou un clavier. Aucun service de jumelage n’est utilisé. Saisissez à nouveau la clé API pour modifier la connexion.</string>
+    <string name="private_invalid_server">Saisissez une URL HTTP ou HTTPS complète, sans identifiants, espaces, paramètres de requête ni fragment.</string>
+    <string name="private_http_warning_title">Connexion HTTP non chiffrée</string>
+    <string name="private_http_warning">HTTP expose votre clé API, vos photos et vos vidéos à toute personne pouvant intercepter la connexion. Utilisez-le uniquement sur un réseau local privé de confiance. HTTPS est recommandé. Continuer en HTTP ?</string>
+    <string name="private_save_failed">Impossible d’enregistrer la connexion de façon sécurisée. Réessayez.</string>
+    <string name="private_disconnect">Déconnecter et supprimer la connexion enregistrée</string>
+</resources>

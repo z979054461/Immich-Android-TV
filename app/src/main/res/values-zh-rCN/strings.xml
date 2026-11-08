@@ -204,16 +204,6 @@
     <string name="filtering">筛选</string>
 
     <!-- Home screen channels -->
-    <string name="home_screen_channels">主屏幕频道</string>
-    <string name="home_screen_channels_settings">主屏幕频道设置</string>
-    <string name="channel_recent_photos">最近照片</string>
-    <string name="enable_home_screen_channels">在主屏幕上显示频道</string>
-    <string name="enable_home_screen_channels_desc">将你最近的照片以及下方选择的相册发布为 Android TV 主屏幕上的频道</string>
-    <string name="set_albums_home_screen_channels">选择要发布为频道的相册</string>
-    <string name="set_albums_home_screen_channels_desc">每个选中的相册都会作为独立的一行显示在 Android TV 主屏幕上</string>
-    <string name="home_screen_channels_refresh_now">立即刷新</string>
-    <string name="home_screen_channels_refresh_now_desc">立即同步主屏幕频道，无需等待下一次自动刷新</string>
-    <string name="home_screen_channel_error">无法为此相册创建主屏幕频道</string>
 
     <!-- Auth step 1 -->
     <string name="auth_sign_in_by_api_key">使用 API 密钥登录</string>
