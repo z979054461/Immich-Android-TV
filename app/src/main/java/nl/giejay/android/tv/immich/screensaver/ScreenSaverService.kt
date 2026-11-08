@@ -25,25 +25,11 @@ class ScreenSaverService : DreamService(), MediaSliderListener, ScreenSaverAsset
 
     @SuppressLint("UnsafeOptInUsageError")
     override fun onDreamingStarted() {
-        ioScope = CoroutineScope(Job() + Dispatchers.IO)
-        Timber.i("Starting screensaver")
-        if (!PreferenceManager.isLoggedId()) {
-            showScreenSaverMessage(R.string.screensaver_not_possible)
-            finish()
-            return
-        }
-        val apiKey = PreferenceManager.get(API_KEY)
-        mediaSliderView = MediaSliderView(this)
-        mediaSliderView!!.setDefaultExoFactory(
-            PrivateMediaDataSource.factory()
-        )
-        setContentView(mediaSliderView)
-        isInteractive = true
-        ScreenSaverAssetLoader(
-            ioScope,
-            ApiClient.getClient(screenSaverApiClientConfig()),
-            this
-        ).start()
+        super.onDreamingStarted()
+        // Background dreams cannot collect a PIN and must never reveal cached private media.
+        // The foreground screensaver preview remains available after unlocking.
+        PreferenceManager.lock()
+        finish()
     }
 
     override fun onDreamingStopped() {

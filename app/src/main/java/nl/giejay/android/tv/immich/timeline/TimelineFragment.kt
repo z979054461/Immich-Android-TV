@@ -5,9 +5,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -27,6 +31,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import nl.giejay.android.tv.immich.ImmichApplication
 import nl.giejay.android.tv.immich.R
@@ -76,6 +81,9 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
     private val sliderViewModel: MediaSliderViewModel by activityViewModels()
 
     private var recyclerView: RecyclerView? = null
+    private var statusView: View? = null
+    private var statusMessage: TextView? = null
+    private var retryButton: Button? = null
     private var progressBar: ProgressBar? = null
     private var scrubberView: TimelineScrubberView? = null
     private var mosaicAdapter: TimelineMosaicAdapter? = null
@@ -129,8 +137,10 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             return
         }
 
+        // Root graph survives the photo viewer, but is replaced on lock/profile switch.
+        // Activity scope would retain the previous account's timeline and API client.
         viewModel = ViewModelProvider(
-            requireActivity(),
+            findNavController().getBackStackEntry(R.id.nav_graph),
             TimelineViewModelFactory(apiClient)
         )[TimelineViewModel::class.java]
     }
@@ -149,6 +159,13 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         hideBrowseTitle()
 
         progressBar = view.findViewById(R.id.browse_progressbar)
+        statusView = view.findViewById(R.id.timeline_status)
+        statusMessage = view.findViewById(R.id.timeline_status_message)
+        retryButton = view.findViewById<Button>(R.id.timeline_retry).apply {
+            setOnClickListener {
+                viewLifecycleOwner.lifecycleScope.launch { viewModel.loadBucketList(refresh = true) }
+            }
+        }
         recyclerView = view.findViewById(R.id.timeline_recycler)
         scrubberView = view.findViewById(R.id.timeline_scrubber)
 
@@ -352,31 +369,23 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                     }
                 }
                 launch {
-                    viewModel.isLoading.collect { loading ->
-                        progressBar?.visibility = if (loading) View.VISIBLE else View.GONE
-                    }
+                    combine(viewModel.isLoading, viewModel.initialLoadComplete,
+                        viewModel.error, viewModel.bucketAssets) { loading, complete, error, assets ->
+                        TimelineStatus(loading, complete, error, assets.values.any { it.isNotEmpty() })
+                    }.collect { renderStatus(it) }
                 }
                 launch {
                     viewModel.buckets.collect { buckets ->
                         scrubberView?.setBuckets(buckets)
                     }
                 }
-                launch {
-                    viewModel.error.collect { message ->
-                        if (message != null && isAdded) {
-                            progressBar?.visibility = View.GONE
-                            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-                            viewModel.clearError()
-                        }
-                    }
-                }
             }
         }
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucketList()
         }
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadMemories()
         }
     }
@@ -405,6 +414,11 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         super.onDestroyView()
         recyclerView = null
         progressBar = null
+        loadingNextBucket = false
+        loadingNewerBucket = false
+        statusView = null
+        statusMessage = null
+        retryButton = null
         scrubberView = null
         mosaicAdapter = null
         focusNavigator = null
@@ -412,6 +426,36 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         pendingJumpFocus = false
         stickyJumpBucketKey = null
         scrubberPreviewMoved = false
+    }
+
+    private data class TimelineStatus(
+        val loading: Boolean, val complete: Boolean, val error: String?, val hasAssets: Boolean
+    )
+
+    private fun renderStatus(state: TimelineStatus) {
+        progressBar?.visibility = if (state.loading) View.VISIBLE else View.GONE
+        val showStatus = !state.loading && state.complete && (state.error != null || !state.hasAssets)
+        statusView?.visibility = if (showStatus) View.VISIBLE else View.GONE
+        retryButton?.isEnabled = !state.loading
+        if (!showStatus) return
+        // Keep already loaded photos usable when a later month fails.
+        (statusView?.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+            params.gravity = if (state.hasAssets) Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL else Gravity.CENTER
+            statusView?.layoutParams = params
+        }
+        statusMessage?.setText(when {
+            state.error == null -> R.string.timeline_empty
+            state.error.contains("403") || state.error.contains("required permission", ignoreCase = true) -> R.string.timeline_permission_error
+            state.error.contains("401") -> R.string.timeline_auth_error
+            state.error.contains("404") -> R.string.timeline_endpoint_error
+            state.error.contains("400") -> R.string.timeline_version_error
+            else -> R.string.timeline_load_error
+        })
+        if (!dataReadyNotified) {
+            mainFragmentAdapter.fragmentHost?.notifyDataReady(mainFragmentAdapter)
+            dataReadyNotified = true
+        }
+        if (!state.hasAssets && !isBrowseShowingHeaders()) retryButton?.requestFocus()
     }
 
     private fun clearBackground() {
@@ -455,7 +499,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         // Enter: keep re-anchoring after neighbor loads insert content above the target.
         stickyJumpBucketKey = if (exitToMosaic) null else bucketKey
         scrubberView?.setIndicatorMonthKey(bucketKey)
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucket(bucketKey)
             val list = viewModel.buckets.value
             val index = list.indexOfFirst { it.timeBucket == bucketKey }
@@ -916,7 +960,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             ?: return false
         val next = viewModel.nextOlderUnloadedBucket(dayKey) ?: return false
         loadingNextBucket = true
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucket(next.timeBucket)
             withContext(Dispatchers.Main) {
                 loadingNextBucket = false
@@ -959,7 +1003,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         // Extend farther back in time — never fill newest-end gaps while at the oldest end.
         val next = viewModel.nextOlderUnloadedBucket() ?: return
         loadingNextBucket = true
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucket(next.timeBucket)
             withContext(Dispatchers.Main) {
                 loadingNextBucket = false
@@ -980,7 +1024,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             ?: return false
         val next = viewModel.nextNewerUnloadedBucket(dayKey) ?: return false
         loadingNewerBucket = true
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucket(next.timeBucket)
             withContext(Dispatchers.Main) {
                 loadingNewerBucket = false

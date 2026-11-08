@@ -1,5 +1,6 @@
 package nl.giejay.android.tv.immich.api.util
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.ResponseBody
@@ -53,4 +54,11 @@ class ApiUtilTest {
         )
         verify(mockBody, times(1)).string()
     }
+
+    @Test(expected = CancellationException::class)
+    fun `cancelled request is not converted to connection error`(): Unit = runBlocking {
+        ApiUtil.executeAPICall<String>(200) { throw CancellationException("test cancellation") }
+        Unit
+    }
+
 }

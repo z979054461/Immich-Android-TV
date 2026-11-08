@@ -1,0 +1,17 @@
+<resources>
+    <string name="profiles_title">谁在观看？</string>
+    <string name="profiles_intro">选择个人资料。每次重新打开应用时，均需输入本地 PIN 码。</string>
+    <string name="profiles_add">＋ 添加 Immich 账户</string>
+    <string name="profiles_name">个人资料名称（1–40 个字符）</string>
+    <string name="profiles_new_pin">设置 6–12 位数字 PIN</string>
+    <string name="profiles_confirm_pin">再次输入 PIN</string>
+    <string name="profiles_pin_invalid">请输入 6–12 位数字，两次 PIN 必须一致。</string>
+    <string name="profiles_enter_pin">输入本地 PIN</string>
+    <string name="profiles_unlock">解锁</string>
+    <string name="profiles_wrong_pin">无法解锁，请检查 PIN。尝试 5 次后需等待 30 秒；多次尝试最长需等待 5 分钟。</string>
+    <string name="profiles_switch">锁定 / 切换用户</string>
+    <string name="profiles_remove">移除此电视的个人资料</string>
+    <string name="profiles_remove_warning">要从此电视移除此资料吗？不会删除 Immich 服务器上的照片或账户。再次添加时需要 API Key。</string>
+    <string name="profiles_recovery">忘记 PIN？移除本地资料后，用 API Key 重新添加。PIN 仅用于锁定电视应用，不是 Immich 密码。为防止绕过锁屏，已停用后台照片屏保；解锁后仍可预览。</string>
+    <string name="profiles_upgrade">安全升级：请重新输入服务器地址、API Key，并设置 PIN 来添加账户。服务器上的照片不会改变。</string>
+</resources>

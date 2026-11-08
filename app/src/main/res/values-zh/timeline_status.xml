@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="timeline_retry">重新加载时间线</string>
+    <string name="timeline_empty">时间线暂无照片。请检查当前账户的可见图库及伴侣共享设置。</string>
+    <string name="timeline_permission_error">时间线访问被拒绝。API Key 需要 asset.read 权限；显示缩略图还需要 asset.view 权限。</string>
+    <string name="timeline_auth_error">服务器拒绝了此 API Key。请检查账户连接设置后重试。</string>
+    <string name="timeline_load_error">时间线加载失败。请检查服务器连接、证书和 Immich 版本后重试。已加载的照片会保留。</string>
+    <string name="timeline_endpoint_error">时间线接口返回 404。请检查服务器地址、反向代理的 API 路由，以及 Immich 版本是否支持时间线接口。</string>
+    <string name="timeline_version_error">服务器拒绝了时间线请求（400）。请检查与当前 Immich 版本的兼容性。</string>
+</resources>

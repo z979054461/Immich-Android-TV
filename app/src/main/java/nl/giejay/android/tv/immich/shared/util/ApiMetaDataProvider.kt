@@ -5,6 +5,7 @@ import arrow.core.Either
 import arrow.core.Option
 import arrow.core.left
 import arrow.core.right
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,13 +19,13 @@ import nl.giejay.mediaslider.model.MetaDataType
 import timber.log.Timber
 
 class AlbumMetaDataProvider(private val assetId: String) : MetaDataProvider {
+    private val session = ApiClientConfig.fromPrefs()
     override suspend fun getValue(): String? {
-        val map: Either<String, String> = ApiClient.getClient(
-            ApiClientConfig.fromPrefs()
-        ).listAlbums(Option.invoke(assetId)).map { albums ->
+        if (session !== ApiClientConfig.fromPrefs()) return null
+        val map: Either<String, String> = ApiClient.getClient(session).listAlbums(Option.invoke(assetId)).map { albums ->
             albums.distinct().joinToString(", ") { it.albumName }
         }
-        return map.getOrNull()
+        return if (session === ApiClientConfig.fromPrefs()) map.getOrNull() else null
     }
 }
 
@@ -42,9 +43,10 @@ class AssetDetailMetaDataProvider(
     private val assetId: String,
     private val field: MetaDataType
 ) : MetaDataProvider {
+    private val session = ApiClientConfig.fromPrefs()
 
     override suspend fun getValue(): String? {
-        return AssetDetailCache.get(assetId).fold(
+        return AssetDetailCache.get(assetId, session).fold(
             { error ->
                 Timber.w("Failed to load asset $assetId for field $field: $error")
                 null
@@ -59,65 +61,77 @@ class AssetDetailMetaDataProvider(
  * the same asset share one network call (Caffeine-style without a new dependency).
  */
 object AssetDetailCache {
-    /** Cap detail payloads so long timeline/memory sessions cannot grow without bound. */
     private const val MAX_ENTRIES = 100
-
-    // Access-order LinkedHashMap (not android.util.LruCache) so JVM unit tests can run without Robolectric.
+    private const val LOCKED = "Profile locked or changed"
+    private val monitor = Any()
+    private var cachedSession: ApiClientConfig? = null
     private val cache = object : LinkedHashMap<String, Asset>(MAX_ENTRIES, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Asset>?): Boolean =
             size > MAX_ENTRIES
     }
-    private val mutex = Mutex()
     private val inFlight = mutableMapOf<String, CompletableDeferred<Either<String, Asset>>>()
-
-    private val defaultFetch: suspend (String) -> Either<String, Asset> = { assetId ->
-        val client = ApiClient.getClient(
-            ApiClientConfig.fromPrefs()
-        )
-        client.getAsset(assetId)
+    private val defaultFetch: suspend (ApiClientConfig, String) -> Either<String, Asset> = { session, assetId ->
+        ApiClient.getClient(session).getAsset(assetId)
     }
 
-    /** Test seam — production uses [ApiClient.getAsset]. */
+    /** Test seam. Production requests use the provider's captured, immutable session. */
     @Volatile
-    var fetchAsset: suspend (String) -> Either<String, Asset> = defaultFetch
+    var fetchAsset: suspend (ApiClientConfig, String) -> Either<String, Asset> = defaultFetch
 
-    /**
-     * Returns the asset or an error message if the API call fails.
-     */
-    suspend fun get(assetId: String): Either<String, Asset> {
-        mutex.withLock { cache[assetId] }?.let { return it.right() }
+    private fun isCurrent(session: ApiClientConfig) =
+        session === ApiClientConfig.fromPrefs() && session.apiKey.isNotEmpty() && session.hostName.isNotEmpty()
 
-        val (deferred, isOwner) = mutex.withLock {
-            cache[assetId]?.let { cached ->
-                return@withLock CompletableDeferred<Either<String, Asset>>(cached.right()) to false
+    suspend fun get(assetId: String, session: ApiClientConfig = ApiClientConfig.fromPrefs()): Either<String, Asset> {
+        val (deferred, isOwner) = synchronized(monitor) {
+            if (!isCurrent(session)) return LOCKED.left()
+            if (cachedSession !== session) {
+                cache.clear()
+                inFlight.clear()
+                cachedSession = session
             }
-            inFlight[assetId]?.let { return@withLock it to false }
+            cache[assetId]?.let { return it.right() }
+            inFlight[assetId]?.let { return@synchronized it to false }
             val created = CompletableDeferred<Either<String, Asset>>()
             inFlight[assetId] = created
             created to true
         }
-
         if (isOwner) {
             try {
-                val result = fetchAsset(assetId)
-                result.onRight { asset ->
-                    mutex.withLock { cache[assetId] = asset }
+                val result = fetchAsset(session, assetId)
+                synchronized(monitor) {
+                    if (cachedSession === session && isCurrent(session)) {
+                        result.onRight { cache[assetId] = it }
+                        deferred.complete(result)
+                    } else {
+                        deferred.complete(LOCKED.left())
+                    }
                 }
-                deferred.complete(result)
-            } catch (e: Exception) {
-                deferred.complete("Unexpected error: ${e.message}".left())
+            } catch (cancelled: CancellationException) {
+                deferred.cancel(cancelled)
+                throw cancelled
+            } catch (_: Exception) {
+                deferred.complete("Could not load asset details".left())
             } finally {
-                mutex.withLock { inFlight.remove(assetId) }
+                synchronized(monitor) {
+                    if (inFlight[assetId] === deferred) inFlight.remove(assetId)
+                }
             }
         }
+        val result = deferred.await()
+        return if (isCurrent(session)) result else LOCKED.left()
+    }
 
-        return deferred.await()
+    /** Called by lock/profile switch; stale in-flight results cannot refill this cache. */
+    fun clearSession() = synchronized(monitor) {
+        cachedSession = null
+        cache.clear()
+        inFlight.values.forEach { it.cancel() }
+        inFlight.clear()
     }
 
     /** Test helper. */
     fun clear() {
-        cache.clear()
-        inFlight.clear()
+        clearSession()
         fetchAsset = defaultFetch
     }
 }

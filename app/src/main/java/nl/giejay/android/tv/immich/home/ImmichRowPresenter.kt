@@ -24,6 +24,7 @@ class ImmichRowPresenter : Presenter() {
         val headerItem = if (item == null) null else (item as Row).headerItem
         val vh = viewHolder as ImmichRowViewHolder
         vh.tvTitle.text = headerItem?.name
+        vh.icon.visibility = View.GONE
 
         if (editMode) {
             if (headerItem?.name == viewHolder.view.context.getString(R.string.edit)) {

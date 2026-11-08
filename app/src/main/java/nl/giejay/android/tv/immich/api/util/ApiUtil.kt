@@ -2,6 +2,7 @@ package nl.giejay.android.tv.immich.api.util
 
 import arrow.core.Either
 import com.google.gson.Gson
+import kotlinx.coroutines.CancellationException
 import nl.giejay.android.tv.immich.api.model.ImmichErrorResponse
 import nl.giejay.android.tv.immich.api.model.toDisplayMessage
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
@@ -73,6 +74,8 @@ object ApiUtil {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: HttpException) {
             Timber.e(e, "Could not fetch items due to http error")
             return Either.Left("Could not fetch data from API, status: ${e.code()}")

@@ -3,6 +3,10 @@ package nl.giejay.android.tv.immich
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.View
+import android.view.WindowManager
+import androidx.leanback.app.BackgroundManager
+import nl.giejay.mediaslider.viewmodel.MediaSliderViewModel
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
@@ -24,7 +28,10 @@ class MainActivity : FragmentActivity() {
     private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Never restore authenticated fragments/back stack from process or activity recreation.
+        PreferenceManager.lock()
+        super.onCreate(null)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         Timber.i("Booting main activity")
 
@@ -45,17 +52,45 @@ class MainActivity : FragmentActivity() {
             PreferenceManager.saveMetaData(AlignOption.RIGHT, MetaDataScreen.SCREENSAVER, screenSaverMetaDataFromOldPrefs)
         }
 
-        // Preserve navigation on process recreation. External intents never carry server or asset data.
-        if (savedInstanceState == null) {
-            loadStartingPage()
-        }
+        loadStartingPage()
     }
 
-    // Reopening the launcher returns to the normal authenticated entry point.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        lockAndShowProfiles()
+    }
+
+    override fun onStop() {
+        // Stop network and obscure pixels immediately, before any later resume callbacks.
+        PreferenceManager.lock()
+        findViewById<View>(R.id.nav_host_fragment).visibility = View.INVISIBLE
+        ViewModelProvider(this)[MediaSliderViewModel::class.java].configuration = null
+        BackgroundManager.getInstance(this).drawable = null
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (::navController.isInitialized && !PreferenceManager.isLoggedId()) lockAndShowProfiles()
+        findViewById<View>(R.id.nav_host_fragment).visibility = View.VISIBLE
+    }
+
+    fun lockAndShowProfiles() {
+        PreferenceManager.lock()
         loadStartingPage()
+        // Detach old media screens before clearing their activity-scoped models.
+        (supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment)
+            .childFragmentManager.executePendingTransactions()
+        ViewModelProvider(this)[MediaSliderViewModel::class.java].configuration = null
+        BackgroundManager.getInstance(this).drawable = null
+    }
+
+    fun showUnlockedHome() {
+        if (!PreferenceManager.isLoggedId()) return
+        navGraph = navController.navInflater.inflate(R.navigation.nav_graph)
+        navGraph.setStartDestination(R.id.homeFragment)
+        navController.graph = navGraph
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -64,13 +99,8 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun loadStartingPage() {
-        if (!PreferenceManager.isLoggedId()) {
-            Timber.i("Start page is authentication")
-            navGraph.setStartDestination(R.id.authFragment)
-        } else {
-            Timber.i("Start page is home")
-            navGraph.setStartDestination(R.id.homeFragment)
-        }
+        navGraph = navController.navInflater.inflate(R.navigation.nav_graph)
+        navGraph.setStartDestination(R.id.profileFragment)
 
         // Set the graph to trigger loading the start destination
         navController.graph = navGraph

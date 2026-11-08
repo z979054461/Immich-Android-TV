@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="timeline_retry">Retry timeline</string>
+    <string name="timeline_empty">No photos in this timeline. Check this account’s visible library and partner-sharing settings.</string>
+    <string name="timeline_permission_error">Timeline access was denied. This API key needs asset.read. Photos also need asset.view for thumbnails.</string>
+    <string name="timeline_auth_error">The server rejected this API key. Check the account connection and try again.</string>
+    <string name="timeline_load_error">Could not load the timeline. Check the server connection, certificate and Immich version, then retry. Existing photos are kept.</string>
+    <string name="timeline_endpoint_error">The server returned 404 for the timeline. Check the server address and reverse proxy API routing, and confirm this Immich version supports timeline buckets.</string>
+    <string name="timeline_version_error">The server rejected the timeline request (400). Check compatibility with your Immich version.</string>
+</resources>

@@ -183,6 +183,22 @@ class ApiClientFactoryPrivacyTest {
         assertEquals(0, forbidden.requestCount)
     }
 
+    @Test fun sameProfileReunlockNeverRevivesOldSession() {
+        val initial = configuration()
+        publish(initial)
+        val old = ApiClientFactory.forSession(initial)
+        val request = Request.Builder().url(allowed.url("/api/assets")).build()
+        publish(ApiClientConfig("", "", false, false))
+        assertThrows(IOException::class.java) { old.newCall(request).execute().close() }
+        val reopened = initial.copy()
+        publish(reopened)
+        assertThrows(IOException::class.java) { old.newCall(request).execute().close() }
+        assertEquals(0, allowed.requestCount)
+        allowed.enqueue(MockResponse().setBody("ok"))
+        ApiClientFactory.forSession(reopened).newCall(request).execute().use { assertEquals(200, it.code) }
+        assertEquals(1, allowed.requestCount)
+    }
+
     @Test fun connectionStringNeverDisclosesOriginOrKey() {
         val config = configuration()
         assertFalse(config.toString().contains(config.apiKey))

@@ -1,6 +1,7 @@
 package nl.giejay.android.tv.immich.settings
 
 import android.app.Activity
+import nl.giejay.android.tv.immich.MainActivity
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
 import androidx.leanback.widget.HeaderItem
@@ -41,15 +42,13 @@ class SettingsFragment : RowsSupportFragment() {
                 createCardRow(
                     listOf(
                         SettingsCard(
-                            ImmichApplication.appContext!!.getString(R.string.server),
+                            ImmichApplication.appContext!!.getString(R.string.profiles_switch),
                             null,
                             "server",
                             "ic_settings_settings",
                             "ic_settings_settings"
                         ) {
-                            findNavController().navigate(
-                                HomeFragmentDirections.actionGlobalSignInFragment()
-                            )
+                            (activity as? MainActivity)?.lockAndShowProfiles()
                         },
                         SettingsCard(
                             ImmichApplication.appContext!!.getString(R.string.view_settings),

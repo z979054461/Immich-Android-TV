@@ -118,7 +118,7 @@ class CustomRowHeaderPresenter
             }
         } else {
             if (vh.mTitleView != null) {
-                vh.mTitleView!!.text = headerItem.name + "tejstl"
+                vh.mTitleView!!.text = headerItem.name
             }
             if (vh.mDescriptionView != null) {
                 if (TextUtils.isEmpty(headerItem.description)) {

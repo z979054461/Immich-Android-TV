@@ -19,9 +19,10 @@ open class CardPresenter(context: Context, style: Int = R.style.DefaultCardTheme
 
         cardView.tag = card
         cardView.titleText = card.title
-        if (card.description != "") {
-            cardView.contentText = card.description
-        }
+        // Recycled cards must not retain another asset's description.
+        cardView.contentText = card.description
+        cardView.contentDescription = listOf(card.title, card.description)
+            .filter { !it.isNullOrBlank() }.joinToString(" · ")
         setSelected(cardView, card.selected)
     }
 
@@ -42,7 +43,9 @@ open class CardPresenter(context: Context, style: Int = R.style.DefaultCardTheme
             if(it.startsWith("http")){
                 Glide.with(context)
                     .asBitmap()
-                    .centerInside()
+                    .centerCrop()
+                    .placeholder(R.drawable.image_placeholder)
+                    .error(R.drawable.image_placeholder)
                     .load(it)
                     .into(cardView.mainImageView!!)
             } else {
@@ -77,7 +80,10 @@ open class CardPresenter(context: Context, style: Int = R.style.DefaultCardTheme
     }
 
     override fun onCreateView(): ImageCardView {
-        return ImageCardView(context)
+        return ImageCardView(context).apply {
+            background = context.getDrawable(R.drawable.tv_card_background)
+            clipToOutline = true
+        }
     }
 
     private fun setSelected(imageCardView: ImageCardView, selected: Boolean) {

@@ -48,6 +48,36 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true" />
 
+            <LinearLayout
+                android:id="@+id/timeline_status"
+                android:layout_width="440dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp"
+                android:background="@color/tv_surface"
+                android:elevation="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/timeline_status_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp" />
+
+                <Button
+                    android:id="@+id/timeline_retry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:minWidth="160dp"
+                    android:focusable="true"
+                    android:text="@string/timeline_retry" />
+            </LinearLayout>
+
             <ProgressBar
                 android:id="@+id/browse_progressbar"
                 android:layout_width="wrap_content"

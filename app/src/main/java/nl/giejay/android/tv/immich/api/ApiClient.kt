@@ -93,8 +93,10 @@ internal fun List<Asset>.toRandomAssetResponse(): AssetResponse =
 class ApiClient(private val config: ApiClientConfig) {
     companion object ApiClient {
         private var apiClient: nl.giejay.android.tv.immich.api.ApiClient? = null
+        @Synchronized
         fun getClient(config: ApiClientConfig): nl.giejay.android.tv.immich.api.ApiClient {
-            if (config != apiClient?.config) {
+            // Snapshot identity changes even when the same profile unlocks again.
+            if (config !== apiClient?.config) {
                 apiClient = ApiClient(config)
             }
             return apiClient!!

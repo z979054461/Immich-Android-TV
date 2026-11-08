@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.CoroutineScope
 import nl.giejay.android.tv.immich.security.ApiKeyCipher
+import nl.giejay.android.tv.immich.security.ProfileStore
+import nl.giejay.android.tv.immich.api.ApiClientFactory
 import nl.giejay.android.tv.immich.slider.FavoriteButtonControllerPlugin
 import nl.giejay.android.tv.immich.slider.FavoriteService
 import nl.giejay.mediaslider.adapter.AlignOption
@@ -42,6 +44,11 @@ object PreferenceManager {
 
     @Volatile private var activeConnection = ApiClientConfig("", "", false, false)
 
+    lateinit var profiles: ProfileStore
+        private set
+    var activeProfileId: String? = null
+        private set
+
     fun connectionSnapshot(): ApiClientConfig = activeConnection
 
     // stores the typed values, not the internal PrefTypes (String, Int)
@@ -54,8 +61,14 @@ object PreferenceManager {
     fun init(context: Context) {
         sharedPreference = PreferenceManager.getDefaultSharedPreferences(context)
         liveSharedPreferences = LiveSharedPreferences(sharedPreference)
-        migrateApiKeyIfNeeded()
-        activeConnection = ApiClientConfig(HOST_NAME.getValue(sharedPreference), API_KEY.getValue(sharedPreference), false, false)
+        // One-time upgrade: require key re-entry and PIN enrollment, never let a visitor
+        // choose a PIN for an existing account merely by opening the app.
+        if (sharedPreference.contains(API_KEY.key())) {
+            check(sharedPreference.edit().remove(API_KEY.key()).remove(HOST_NAME.key())
+                .putBoolean("profile_upgrade_required", true).commit())
+        }
+        profiles = ProfileStore(context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE))
+        lock()
         subclasses(Pref::class).filter { it.objectInstance != null }.forEach { pref ->
             val prefInstance = pref.objectInstance!! as Pref<Any, *, *>
             liveSharedPreferences.subscribeTyped(prefInstance) { typeValue ->
@@ -64,16 +77,10 @@ object PreferenceManager {
         }
     }
 
-    // Reject any plaintext credential left by an unsupported import before subscriptions read it.
-    private fun migrateApiKeyIfNeeded() {
-        val raw = sharedPreference.getString(API_KEY.key(), "") ?: return
-        if (raw.isNotEmpty() && !ApiKeyCipher.isEncrypted(raw)) {
-            sharedPreference.edit().remove(API_KEY.key()).apply() // Never adopt plaintext credentials in this fork.
-        }
-    }
-
     @Suppress("UNCHECKED_CAST")
     fun <T> get(key: Pref<T, *, *>): T {
+        if (key.key() == API_KEY.key()) return activeConnection.apiKey as T
+        if (key.key() == HOST_NAME.key()) return activeConnection.hostName as T
         return liveContext[key.key()] as T ?: key.getValue(sharedPreference)
     }
 
@@ -103,32 +110,29 @@ object PreferenceManager {
         return hostName != null && apiKey != null && ServerPolicy.isValidApiKey(apiKey) && runCatching { ServerPolicy.normalizeServer(hostName) }.isSuccess
     }
 
-    /** Network readers receive one immutable host/key pair, published only after durable save. */
-    @Synchronized
-    fun saveApiSettings(host: String, key: String) {
-        val normalized = ServerPolicy.normalizeServer(host)
-        require(ServerPolicy.isValidApiKey(key))
-        val encrypted = ApiKeyCipher.encrypt(key)
-        // Invalidate old sessions before mutating backing preferences. No mixed pair can be used.
+    /** Lock invalidates every old immutable session, even when the same profile unlocks again. */
+    @Synchronized fun lock() {
         activeConnection = ApiClientConfig("", "", false, false)
-        if (!sharedPreference.edit().putString(HOST_NAME.key(), normalized)
-                .putString(API_KEY.key(), encrypted).commit()) {
-            liveContext[HOST_NAME.key()] = ""
-            liveContext[API_KEY.key()] = ""
-            sharedPreference.edit().remove(HOST_NAME.key()).remove(API_KEY.key()).apply()
-            throw IllegalStateException("Could not persist connection settings")
-        }
-        liveContext[HOST_NAME.key()] = normalized
-        liveContext[API_KEY.key()] = key
-        activeConnection = ApiClientConfig(normalized, key, false, false)
-    }
-
-    @Synchronized
-    fun removeApiSettings() {
-        activeConnection = ApiClientConfig("", "", false, false)
+        activeProfileId = null
         liveContext[HOST_NAME.key()] = ""
         liveContext[API_KEY.key()] = ""
-        sharedPreference.edit().remove(HOST_NAME.key()).remove(API_KEY.key()).apply()
+        ApiClientFactory.cancelAll()
+        nl.giejay.android.tv.immich.shared.util.AssetDetailCache.clearSession()
+    }
+
+    @Synchronized fun activateProfile(id: String, connection: ApiClientConfig) {
+        require(isValid(connection.hostName, connection.apiKey))
+        lock()
+        // Never reuse account-specific album choices between users.
+        save(SCREENSAVER_ALBUMS, emptySet())
+        activeProfileId = id
+        activeConnection = connection
+    }
+
+    @Synchronized fun removeApiSettings() {
+        val id = activeProfileId
+        lock()
+        if (id != null) profiles.remove(id)
     }
 
     private fun removeStringSetItem(item: String, prefKey: StringSetPref) {

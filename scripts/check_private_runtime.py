@@ -64,7 +64,7 @@ for root in (APP, MEDIA):
               f"{path.relative_to(ROOT)}: alternate network stack needs explicit audit")
 
 for relative in ("timeline/TimelineFocusVideoPreview.kt", "slider/ImmichMediaSlider.kt",
-                 "screensaver/ScreenSaverService.kt", "screensaver/ScreenSaverPreviewFragment.kt"):
+                 "screensaver/ScreenSaverPreviewFragment.kt"):
     source = without_comments(text(KOTLIN / relative))
     check("PrivateMediaDataSource.factory()" in source,
           f"{relative}: media must use PrivateMediaDataSource.factory()")
@@ -76,7 +76,7 @@ for required in (".followRedirects(false)", ".followSslRedirects(false)",
 session = factory.split("fun forSession(", 1)[-1].split("fun forImages(", 1)[0]
 images = factory.split("fun forImages(", 1)[-1].split("fun getClient(", 1)[0]
 raw_client = factory.split("fun getClient(", 1)[-1]
-check("config != PreferenceManager.connectionSnapshot()" in session and
+check("config !== PreferenceManager.connectionSnapshot()" in session and
       session.find("connectionSnapshot()") < session.find("chain.proceed"),
       "Session clients must reject stale connection snapshots before network")
 for name, source in (("image", images), ("session transport", raw_client)):
@@ -107,8 +107,29 @@ for path in KOTLIN.rglob("*.kt"):
     source = without_comments(path.read_text(encoding="utf-8"))
     check("ApiClientFactory.getClient(" not in source,
           f"{path.relative_to(ROOT)}: production client bypasses session/image snapshot wrapper")
-    check(not re.search(r"\bApiClientConfig\s*\(", source),
+    check(path.name == "ProfileStore.kt" or not re.search(r"\bApiClientConfig\s*\(", source),
           f"{path.relative_to(ROOT)}: manually assembled connection may mix host and key")
+
+# Mandatory profile lock invariants, in addition to runtime tests.
+activity = without_comments(text(KOTLIN / "MainActivity.kt"))
+check("FLAG_SECURE" in activity and "super.onCreate(null)" in activity,
+      "Activity must not restore authenticated pixels/back stack or expose recent-task screenshots")
+check("override fun onStop()" in activity and "PreferenceManager.lock()" in activity,
+      "Activity must lock on backgrounding")
+profiles = without_comments(text(KOTLIN / "security/ProfileStore.kt"))
+for required in ("ApiKeyCipher.encrypt", "PinHasher.verify", "ServerPolicy.normalizeServer", "ServerPolicy.isValidApiKey"):
+    check(required in profiles, f"ProfileStore missing guard: {required}")
+check("DiskCacheAdapter()" in glide and "MemoryCacheAdapter()" in glide,
+      "URL-only Glide caches must not bypass per-profile authorization")
+dream = without_comments(text(KOTLIN / "screensaver/ScreenSaverService.kt"))
+check("PreferenceManager.lock()" in dream and "finish()" in dream and "ScreenSaverAssetLoader(this)" not in dream,
+      "Background screensaver must remain disabled while profile PIN is mandatory")
+check("AssetDetailCache.clearSession()" in prefs,
+      "Lock must purge account-scoped metadata cache")
+
+timeline = without_comments(text(KOTLIN / "timeline/TimelineFragment.kt"))
+check("getBackStackEntry(R.id.nav_graph)" in timeline,
+      "Timeline model must be cleared with the profile navigation graph")
 
 manifest_path = APP / "AndroidManifest.xml"
 manifest = ET.fromstring(text(manifest_path))

@@ -14,17 +14,22 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.navigation.NavOptions
-import androidx.navigation.fragment.findNavController
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import nl.giejay.android.tv.immich.MainActivity
+import nl.giejay.android.tv.immich.security.PinHasher
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.api.ServerPolicy
-import nl.giejay.android.tv.immich.shared.prefs.API_KEY
-import nl.giejay.android.tv.immich.shared.prefs.HOST_NAME
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
-import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_ALBUMS
 
 /** Manual-only setup. Credentials never enter saved-instance state or logging. */
 class AuthFragmentStep2 : Fragment() {
+    private var nameInput: EditText? = null
+    private var pinInput: EditText? = null
+    private var confirmInput: EditText? = null
     private var keyInput: EditText? = null
     private var warning: AlertDialog? = null
     private var submitting = false
@@ -41,6 +46,9 @@ class AuthFragmentStep2 : Fragment() {
         }
         label(getString(R.string.app_name), 28f)
         label(getString(R.string.private_manual_setup))
+        label(getString(R.string.profiles_name))
+        nameInput = EditText(context).apply { isSaveEnabled = false; setSingleLine(true) }
+        form.addView(nameInput)
         label(getString(R.string.server_url_text))
         val server = EditText(context).apply {
             id = View.generateViewId()
@@ -65,37 +73,41 @@ class AuthFragmentStep2 : Fragment() {
         }
         keyInput = key
         form.addView(key)
+        label(getString(R.string.profiles_new_pin))
+        fun pinField() = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            isSaveEnabled = false
+            setSingleLine(true)
+            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            if (android.os.Build.VERSION.SDK_INT >= 26) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        pinInput = pinField()
+        form.addView(pinInput)
+        label(getString(R.string.profiles_confirm_pin))
+        confirmInput = pinField()
+        form.addView(confirmInput)
         val submitButton = Button(context).apply {
             id = View.generateViewId()
             text = getString(R.string.submit)
             setOnClickListener { submit(server, key) }
         }
         form.addView(submitButton)
-        if (PreferenceManager.isLoggedId()) {
-            form.addView(Button(context).apply {
-                text = getString(R.string.private_disconnect)
-                setOnClickListener {
-                    PreferenceManager.removeApiSettings()
-                    key.text.clear()
-                    server.text.clear()
-                    isEnabled = false
-                    server.requestFocus()
-                }
-            })
-        }
-        server.nextFocusDownId = key.id
-        key.nextFocusUpId = server.id
-        key.nextFocusDownId = submitButton.id
-        submitButton.nextFocusUpId = key.id
-        key.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_DONE) { submitButton.performClick(); true } else false
-        }
-        server.requestFocus()
+        nameInput?.requestFocus()
         return ScrollView(context).apply { addView(form); isSaveEnabled = false }
     }
 
     private fun submit(server: EditText, key: EditText) {
         if (submitting || warning?.isShowing == true) return
+        if (nameInput?.text.toString().trim().length !in 1..40) {
+            nameInput?.error = getString(R.string.profiles_name)
+            nameInput?.requestFocus()
+            return
+        }
+        if (!PinHasher.valid(pinInput?.text.toString()) || pinInput?.text.toString() != confirmInput?.text.toString()) {
+            pinInput?.error = getString(R.string.profiles_pin_invalid)
+            pinInput?.requestFocus()
+            return
+        }
         val host = try {
             ServerPolicy.normalizeServer(server.text.toString())
         } catch (_: IllegalArgumentException) {
@@ -125,19 +137,34 @@ class AuthFragmentStep2 : Fragment() {
     private fun save(host: String, key: EditText) {
         if (submitting || !isAdded) return
         submitting = true
-        try {
-            PreferenceManager.saveApiSettings(host, key.text.toString())
-            PreferenceManager.save(SCREENSAVER_ALBUMS, emptySet())
-            key.text.clear()
-            findNavController().navigate(
-                R.id.action_global_homeFragment, null,
-                NavOptions.Builder().setPopUpTo(R.id.authFragment, true).build()
-            )
-        } catch (_: Exception) {
-            // No exception text: encryption/network implementations may include private data.
-            Toast.makeText(context, R.string.private_save_failed, Toast.LENGTH_LONG).show()
+        val name = nameInput!!.text.toString()
+        val pin = pinInput!!.text.toString()
+        val secret = key.text.toString()
+        key.text.clear()
+        pinInput?.text?.clear()
+        confirmInput?.text?.clear()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { PreferenceManager.profiles.add(name, host, secret, pin) }
+            }
             submitting = false
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+            if (result.isSuccess) {
+                PreferenceManager.sharedPreference.edit().putBoolean("profile_upgrade_required", false).apply()
+                // Enrollment does not unlock: verify the PIN through the same normal entry path.
+                (activity as? MainActivity)?.lockAndShowProfiles()
+            } else {
+                Toast.makeText(context, R.string.private_save_failed, Toast.LENGTH_LONG).show()
+            }
         }
+    }
+
+    override fun onStop() {
+        warning?.dismiss()
+        keyInput?.text?.clear()
+        pinInput?.text?.clear()
+        confirmInput?.text?.clear()
+        super.onStop()
     }
 
     override fun onDestroyView() {
@@ -145,6 +172,11 @@ class AuthFragmentStep2 : Fragment() {
         warning = null
         keyInput?.text?.clear()
         keyInput = null
+        pinInput?.text?.clear()
+        confirmInput?.text?.clear()
+        pinInput = null
+        confirmInput = null
+        nameInput = null
         submitting = false
         super.onDestroyView()
     }

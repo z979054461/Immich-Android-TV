@@ -1,0 +1,17 @@
+<resources>
+    <string name="profiles_title">Who is watching?</string>
+    <string name="profiles_intro">Choose your profile. A local PIN protects photos each time you reopen the app.</string>
+    <string name="profiles_add">+ Add Immich account</string>
+    <string name="profiles_name">Profile name (1–40 characters)</string>
+    <string name="profiles_new_pin">Create a 6–12 digit PIN</string>
+    <string name="profiles_confirm_pin">Confirm PIN</string>
+    <string name="profiles_pin_invalid">Use 6–12 digits and enter the same PIN twice.</string>
+    <string name="profiles_enter_pin">Enter your local PIN</string>
+    <string name="profiles_unlock">Unlock</string>
+    <string name="profiles_wrong_pin">Could not unlock. Check your PIN. After 5 attempts, wait 30 seconds; repeated attempts may require up to 5 minutes.</string>
+    <string name="profiles_switch">Lock / switch profile</string>
+    <string name="profiles_remove">Remove local profile</string>
+    <string name="profiles_remove_warning">Remove this profile from this TV? Photos and the account on your Immich server will not be deleted. You will need the API key to add it again.</string>
+    <string name="profiles_recovery">Forgot your PIN? Remove the local profile and add it again using your API key. The PIN is only a TV lock, not your Immich password. Background photo screensavers are disabled; preview works while unlocked.</string>
+    <string name="profiles_upgrade">Security upgrade: please add your account again with its server address, API key and a new PIN. Your server photos are unchanged.</string>
+</resources>

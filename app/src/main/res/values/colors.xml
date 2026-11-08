@@ -16,7 +16,7 @@
 
 <resources>
     <!-- Warm dark gray for backgrounds -->
-    <color name="gray_dark">#212121</color>
+    <color name="gray_dark">@color/tv_background</color>
 
     <color name="black">#000000</color>
 
@@ -30,11 +30,11 @@
     <color name="screen_black">#0E0E0F</color>
 
     <color name="default_text_color">@color/screen_white</color>
-    <color name="default_text_color_secondary">@color/screen_white_60</color>
+    <color name="default_text_color_secondary">@color/tv_text_secondary</color>
 
-    <color name="default_card_background_color">#263238</color>
-    <color name="default_card_footer_background_color">#37474F</color>
-    <color name="selected_card_footer_background_color">#F0F</color>
+    <color name="default_card_background_color">@color/tv_surface</color>
+    <color name="default_card_footer_background_color">@color/tv_surface</color>
+    <color name="selected_card_footer_background_color">@color/tv_surface_highlight</color>
 
     <color name="action_button_ripple_color">@color/black</color>
     <color name="action_button_background_focused_color">@color/screen_white</color>
@@ -44,14 +44,20 @@
 
     <color name="error_text">#EF9A9A</color>
 
-    <color name="settings_card_background">#0277BD</color>
-    <color name="settings_card_background_focussed">#01579B</color>
+    <color name="settings_card_background">@color/tv_surface</color>
+    <color name="settings_card_background_focussed">@color/tv_surface_highlight</color>
 
     <color name="progressbarColor">#ffffff</color>
 
     <!-- Immich-like timeline scrubber accent -->
-    <color name="timeline_scrubber_accent">#4250AF</color>
+    <color name="timeline_scrubber_accent">@color/tv_accent</color>
     <color name="timeline_scrubber_label">@color/screen_white</color>
     <color name="timeline_scrubber_dot">@color/screen_white_70</color>
 
+    <!-- Quiet, high-contrast TV palette with a single focus accent. -->
+    <color name="tv_background">#0B1220</color>
+    <color name="tv_surface">#172338</color>
+    <color name="tv_surface_highlight">#253B56</color>
+    <color name="tv_accent">#8EDAD0</color>
+    <color name="tv_text_secondary">#AABACD</color>
 </resources>

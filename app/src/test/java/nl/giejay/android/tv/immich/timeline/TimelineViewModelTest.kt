@@ -1,12 +1,14 @@
 package nl.giejay.android.tv.immich.timeline
 
 import arrow.core.Either
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -586,4 +588,120 @@ class TimelineViewModelTest {
         assertEquals("2021-12-31", vm.newestDayKeyForBucket("2022-01-01"))
         assertEquals("2022-01-01", vm.resolveBucketKey("2022-01"))
     }
+
+    @Test
+    fun `default startup fetches only newest month even for huge library`() = runTest {
+        val fetched = mutableListOf<String>()
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(
+                TimeBucketSummary("2025-01-01", 100000),
+                TimeBucketSummary("2026-07-01", 100000),
+                TimeBucketSummary("2026-06-01", 100000)
+            )) },
+            fetchBucket = { key -> fetched.add(key); Either.Right(listOf(asset(key))) }
+        )
+        vm.loadBucketList()
+        assertEquals(listOf("2026-07-01"), fetched)
+        assertTrue(vm.initialLoadComplete.value)
+        assertFalse(vm.isLoading.value)
+    }
+
+    @Test
+    fun `cached index still retries failed initial month`() = runTest {
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = {
+                if (attempts.incrementAndGet() == 1) Either.Left("403 missing asset.read")
+                else Either.Right(listOf(asset("a")))
+            }
+        )
+        vm.loadBucketList()
+        assertEquals("403 missing asset.read", vm.error.value)
+        assertTrue(vm.initialLoadComplete.value)
+        assertFalse(vm.isLoading.value)
+        vm.loadBucketList()
+        assertEquals(2, attempts.get())
+        assertNull(vm.error.value)
+        assertEquals("a", vm.bucketAssets.value["2026-07-01"]!!.single().id)
+    }
+
+    @Test
+    fun `optional memories finishing cannot hide pending timeline spinner`() = runTest {
+        val response = CompletableDeferred<Either<String, List<TimeBucketSummary>>>()
+        val vm = TimelineViewModel(
+            fetchBuckets = { response.await() },
+            fetchBucket = { Either.Right(emptyList()) },
+            fetchMemories = { Either.Left("403 missing memory.read") }
+        )
+        val loading = async { vm.loadBucketList() }
+        runCurrent()
+        assertTrue(vm.isLoading.value)
+        vm.loadMemories()
+        assertTrue(vm.isLoading.value)
+        assertFalse(vm.initialLoadComplete.value)
+        assertNull(vm.error.value)
+        response.complete(Either.Right(emptyList()))
+        loading.await()
+        assertFalse(vm.isLoading.value)
+        assertTrue(vm.initialLoadComplete.value)
+    }
+
+    @Test
+    fun `malformed asset response becomes retryable error instead of crashing`() = runTest {
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = {
+                if (attempts.incrementAndGet() == 1) throw IllegalArgumentException("private server detail")
+                Either.Right(listOf(asset("a")))
+            }
+        )
+        vm.loadBucketList()
+        assertTrue(vm.error.value != null)
+        assertFalse(vm.error.value!!.contains("private server detail"))
+        assertFalse(vm.isLoading.value)
+        vm.loadBucketList()
+        assertNull(vm.error.value)
+        assertEquals(2, attempts.get())
+    }
+
+    @Test
+    fun `explicit retry refreshes a previously empty timeline index`() = runTest {
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                if (attempts.incrementAndGet() == 1) Either.Right(emptyList())
+                else Either.Right(listOf(TimeBucketSummary("2026-07-01", 1)))
+            },
+            fetchBucket = { Either.Right(listOf(asset("new"))) }
+        )
+        vm.loadBucketList()
+        assertTrue(vm.buckets.value.isEmpty())
+        vm.loadBucketList(refresh = true)
+        assertEquals(2, attempts.get())
+        assertEquals("new", vm.bucketAssets.value["2026-07-01"]!!.single().id)
+    }
+
+
+    @Test
+    fun `failed index stops loading and can be retried`() = runTest {
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                if (attempts.incrementAndGet() == 1) Either.Left("404 timeline unavailable")
+                else Either.Right(listOf(TimeBucketSummary("2026-07-01", 1)))
+            },
+            fetchBucket = { Either.Right(listOf(asset("a"))) }
+        )
+        vm.loadBucketList()
+        assertEquals("404 timeline unavailable", vm.error.value)
+        assertTrue(vm.initialLoadComplete.value)
+        assertFalse(vm.isLoading.value)
+        vm.loadBucketList()
+        assertEquals(2, attempts.get())
+        assertNull(vm.error.value)
+        assertEquals("a", vm.bucketAssets.value["2026-07-01"]!!.single().id)
+    }
+
 }

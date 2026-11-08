@@ -3,6 +3,8 @@ package nl.giejay.android.tv.immich.timeline
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import arrow.core.Either
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -12,12 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import nl.giejay.android.tv.immich.api.model.Memory
 import nl.giejay.android.tv.immich.api.model.TimeBucketSummary
 import nl.giejay.android.tv.immich.api.model.TimelineAsset
 import nl.giejay.android.tv.immich.shared.util.Debouncer
-import timber.log.Timber
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.concurrent.ConcurrentHashMap
@@ -63,6 +66,13 @@ class TimelineViewModel(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _initialLoadComplete = MutableStateFlow(false)
+    val initialLoadComplete: StateFlow<Boolean> = _initialLoadComplete.asStateFlow()
+    private var bucketListLoaded = false
+    private val listMutex = Mutex()
+    private val layoutMutex = Mutex()
+    private val failedBuckets = ConcurrentHashMap.newKeySet<String>()
 
     private var contentWidthPx: Int = 0
     private var rowHeightPx: Int = 0
@@ -135,41 +145,60 @@ class TimelineViewModel(
         this.yesterdayLabel = yesterdayLabel
     }
 
-    suspend fun loadBucketList(eagerMonths: Int = 3) {
-        if (_buckets.value.isNotEmpty()) return
+    // Fetch only one complete month at startup. The API has no per-bucket pagination.
+    suspend fun loadBucketList(eagerMonths: Int = 1, refresh: Boolean = false) = listMutex.withLock {
         _isLoading.value = true
-        fetchBuckets().fold(
-            { message ->
-                _error.value = message
-                _isLoading.value = false
-            },
-            { list ->
-                _buckets.value = list
-                list.take(eagerMonths).forEach { loadBucket(it.timeBucket) }
-                _isLoading.value = false
+        _error.value = null
+        try {
+            if (refresh) {
+                bucketListLoaded = false
+                _bucketAssets.update { assets -> assets.filterValues { it.isNotEmpty() } }
             }
-        )
+            if (!bucketListLoaded) {
+                when (val result = safeFetch { fetchBuckets() }) {
+                    is Either.Left -> {
+                        _error.value = result.value
+                        return@withLock
+                    }
+                    is Either.Right -> {
+                        _buckets.value = result.value.distinctBy { it.timeBucket }
+                            .sortedByDescending { it.timeBucket }
+                        bucketListLoaded = true
+                    }
+                }
+            }
+            // A successful index request must not prevent retrying failed asset requests.
+            val targets = (_buckets.value.take(eagerMonths).map { it.timeBucket } +
+                failedBuckets.toList()).distinct()
+            for (key in targets) {
+                if (loadBucket(key) is Either.Left) break
+            }
+        } finally {
+            _isLoading.value = false
+            _initialLoadComplete.value = true
+        }
     }
 
     suspend fun loadMemories() {
-        _isLoading.value = true
-        fetchMemories().fold(
-            { message ->
-                // Memories are optional; don't toast/fail the whole Timeline mosaic.
-                Timber.w("Failed to load memories: %s", message)
-                _memoriesReady.value = true
-                _memories.value = emptyList()
-                _isLoading.value = false
-            },
-            { list ->
-                // Mark ready before publishing the list so bindDays/restore sees both together.
-                _memoriesReady.value = true
-                _memories.value = list
-                recomputeLayout()
-                _isLoading.value = false
-            }
+        // Optional memories must never hide the independent timeline loading indicator.
+        val result = safeFetch { fetchMemories() }
+        _memoriesReady.value = true
+        result.fold(
+            { _memories.value = emptyList() },
+            { _memories.value = it }
         )
+        recomputeLayout()
     }
+
+    private suspend fun <T> safeFetch(block: suspend () -> Either<String, T>): Either<String, T> =
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Do not expose raw exception text, URLs, keys or a server response body.
+            Either.Left("Could not read the timeline response. Check the server connection and Immich version, then retry.")
+        }
 
     fun rememberSelection(dayKey: String, assetId: String) {
         lastSelectedDayKey = dayKey
@@ -188,12 +217,17 @@ class TimelineViewModel(
         _bucketAssets.value[timeBucket]?.let { return Either.Right(it) }
 
         val deferred = inFlight.computeIfAbsent(timeBucket) {
-            viewModelScope.async(Dispatchers.IO) {
+            viewModelScope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
                 try {
-                    fetchBucket(timeBucket).also { result ->
+                    safeFetch { fetchBucket(timeBucket) }.also { result ->
                         result.fold(
-                            { message -> _error.value = message },
+                            { message ->
+                                failedBuckets.add(timeBucket)
+                                _error.value = message
+                            },
                             { assets ->
+                                failedBuckets.remove(timeBucket)
+                                if (failedBuckets.isEmpty()) _error.value = null
                                 _bucketAssets.update { current -> current + (timeBucket to assets) }
                                 recomputeLayout()
                             }
@@ -232,47 +266,49 @@ class TimelineViewModel(
      * Offloading this prevents the main thread from stalling for several seconds during
      * large jumps (e.g., using the scrubber).
      */
-    private suspend fun recomputeLayout() = withContext(Dispatchers.Default) {
-        val loaded = _bucketAssets.value
-        val buckets = _buckets.value
-        val memories = _memories.value
-        val width = contentWidthPx
-        val height = rowHeightPx
-        val gap = gapPx
-        val today = todayLabel
-        val yesterday = yesterdayLabel
+    private suspend fun recomputeLayout() = layoutMutex.withLock {
+        withContext(Dispatchers.Default) {
+            val loaded = _bucketAssets.value
+            val buckets = _buckets.value
+            val memories = _memories.value
+            val width = contentWidthPx
+            val height = rowHeightPx
+            val gap = gapPx
+            val today = todayLabel
+            val yesterday = yesterdayLabel
 
-        if (width <= 0) return@withContext
+            if (width <= 0) return@withContext
 
-        val assets = buckets.flatMap { loaded[it.timeBucket].orEmpty() }
-        val daysList = assets.toTimelineDays()
-        _days.value = daysList
+            val assets = buckets.flatMap { loaded[it.timeBucket].orEmpty() }
+            val daysList = assets.toTimelineDays()
+            _days.value = daysList
 
-        val items = TimelineMosaicLayoutEngine.layout(
-            days = daysList,
-            contentWidthPx = width,
-            rowHeightPx = height,
-            gapPx = gap,
-            dayLabel = { day ->
-                TimelineDateFormatter.dayLabel(
-                    date = day.date,
-                    todayLabel = today,
-                    yesterdayLabel = yesterday
-                )
+            val items = TimelineMosaicLayoutEngine.layout(
+                days = daysList,
+                contentWidthPx = width,
+                rowHeightPx = height,
+                gapPx = gap,
+                dayLabel = { day ->
+                    TimelineDateFormatter.dayLabel(
+                        date = day.date,
+                        todayLabel = today,
+                        yesterdayLabel = yesterday
+                    )
+                }
+            )
+
+            val neighbors = TimelineMosaicLayoutEngine.buildFocusNeighbors(items) { from, to ->
+                hasUnloadedBucketBetween(from, to)
             }
-        )
 
-        val neighbors = TimelineMosaicLayoutEngine.buildFocusNeighbors(items) { from, to ->
-            hasUnloadedBucketBetween(from, to)
+            val itemsWithMemories = if (memories.isNotEmpty()) {
+                listOf(TimelineMosaicItem.MemoriesRow(memories)) + items
+            } else {
+                items
+            }
+
+            _layout.value = TimelineLayout(itemsWithMemories, neighbors, daysList)
         }
-
-        val itemsWithMemories = if (memories.isNotEmpty()) {
-            listOf(TimelineMosaicItem.MemoriesRow(memories)) + items
-        } else {
-            items
-        }
-
-        _layout.value = TimelineLayout(itemsWithMemories, neighbors, daysList)
     }
 
     /**
@@ -291,8 +327,13 @@ class TimelineViewModel(
                     return@launch
                 }
                 loadBucket(resolved)
-                list.getOrNull(index - 1)?.let { loadBucket(it.timeBucket) }
-                list.getOrNull(index + 1)?.let { loadBucket(it.timeBucket) }
+                // Dense months are fetched only on explicit navigation, not speculative focus.
+                if (list[index].count < MAX_PREFETCH_ASSETS) {
+                    list.getOrNull(index - 1)?.takeIf { it.count < MAX_PREFETCH_ASSETS }
+                        ?.let { loadBucket(it.timeBucket) }
+                    list.getOrNull(index + 1)?.takeIf { it.count < MAX_PREFETCH_ASSETS }
+                        ?.let { loadBucket(it.timeBucket) }
+                }
             }
         }, prefetchDebounceMs, TimeUnit.MILLISECONDS)
     }
@@ -462,6 +503,7 @@ class TimelineViewModel(
     }
 
     companion object {
+        const val MAX_PREFETCH_ASSETS = 1000
         const val PREFETCH_KEY = "timeline-prefetch"
         const val PREFETCH_DEBOUNCE_MS = 300L
 
