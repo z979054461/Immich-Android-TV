@@ -29,6 +29,29 @@ jobs:
           printf '%s  %s\n' '9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14' "$GRADLE_DIST/gradle-9.6.1-bin.zip" | sha256sum --check --strict
           unzip -q "$GRADLE_DIST/gradle-9.6.1-bin.zip" -d "$GRADLE_DIST"
           echo "$GRADLE_DIST/gradle-9.6.1/bin" >> "$GITHUB_PATH"
+      - name: Prepare verified Kotlin compiler mirror
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          KOTLIN_MIRROR="$RUNNER_TEMP/kotlin-mirror/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.4.0"
+          mkdir -p "$KOTLIN_MIRROR"
+          gh release download v2.4.0 --repo JetBrains/kotlin --pattern kotlin-compiler-embeddable-2.4.0.jar --dir "$KOTLIN_MIRROR"
+          printf '%s  %s\n' 'c2b25e8c1c93ec416ba4327f5e31eaec0f0c8847241b9353e294b8db9dce564f' "$KOTLIN_MIRROR/kotlin-compiler-embeddable-2.4.0.jar" | sha256sum --check --strict
+          curl --fail --location --retry 3 --output "$KOTLIN_MIRROR/kotlin-compiler-embeddable-2.4.0.pom" 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.4.0/kotlin-compiler-embeddable-2.4.0.pom'
+          cat > "$RUNNER_TEMP/kotlin-mirror.init.gradle" <<'GRADLE'
+          allprojects {
+              repositories {
+                  exclusiveContent {
+                      forRepository {
+                          maven { url = uri(System.getenv('RUNNER_TEMP') + '/kotlin-mirror') }
+                      }
+                      filter { includeModule('org.jetbrains.kotlin', 'kotlin-compiler-embeddable') }
+                  }
+              }
+          }
+          GRADLE
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -36,7 +59,7 @@ jobs:
       - name: Privacy regression audit
         run: python3 scripts/check_private_runtime.py
       - name: Unit tests, lint, and unsigned release
-        run: gradle :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
+        run: gradle --init-script "$RUNNER_TEMP/kotlin-mirror.init.gradle" :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
       - name: Inspect release APK and merged manifest
         shell: bash
         run: |
@@ -83,6 +106,29 @@ jobs:
           printf '%s  %s\n' '9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14' "$GRADLE_DIST/gradle-9.6.1-bin.zip" | sha256sum --check --strict
           unzip -q "$GRADLE_DIST/gradle-9.6.1-bin.zip" -d "$GRADLE_DIST"
           echo "$GRADLE_DIST/gradle-9.6.1/bin" >> "$GITHUB_PATH"
+      - name: Prepare verified Kotlin compiler mirror
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          KOTLIN_MIRROR="$RUNNER_TEMP/kotlin-mirror/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.4.0"
+          mkdir -p "$KOTLIN_MIRROR"
+          gh release download v2.4.0 --repo JetBrains/kotlin --pattern kotlin-compiler-embeddable-2.4.0.jar --dir "$KOTLIN_MIRROR"
+          printf '%s  %s\n' 'c2b25e8c1c93ec416ba4327f5e31eaec0f0c8847241b9353e294b8db9dce564f' "$KOTLIN_MIRROR/kotlin-compiler-embeddable-2.4.0.jar" | sha256sum --check --strict
+          curl --fail --location --retry 3 --output "$KOTLIN_MIRROR/kotlin-compiler-embeddable-2.4.0.pom" 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.4.0/kotlin-compiler-embeddable-2.4.0.pom'
+          cat > "$RUNNER_TEMP/kotlin-mirror.init.gradle" <<'GRADLE'
+          allprojects {
+              repositories {
+                  exclusiveContent {
+                      forRepository {
+                          maven { url = uri(System.getenv('RUNNER_TEMP') + '/kotlin-mirror') }
+                      }
+                      filter { includeModule('org.jetbrains.kotlin', 'kotlin-compiler-embeddable') }
+                  }
+              }
+          }
+          GRADLE
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -108,7 +154,7 @@ jobs:
           chmod 600 "$RELEASE_KEYSTORE_PATH"
           java scripts/ResolveSigningAlias.java "$RELEASE_KEYSTORE_PATH" "$SIGN_DIR/alias.txt"
           export RELEASE_KEY_ALIAS=$(cat "$SIGN_DIR/alias.txt")
-          gradle :app:assembleRelease
+          gradle --init-script "$RUNNER_TEMP/kotlin-mirror.init.gradle" :app:assembleRelease
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
           [[ -n "$APK" && -n "$MANIFEST" ]]
