@@ -30,9 +30,9 @@ jobs:
           set -euo pipefail
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
-          test -n "$APK" && test -n "$MANIFEST"
+          [[ -n "$APK" && -n "$MANIFEST" ]]
           APKANALYZER=$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer -executable | sort -V | tail -1)
-          test -n "$APKANALYZER" && test -x "$APKANALYZER"
+          [[ -n "$APKANALYZER" && -x "$APKANALYZER" ]]
           APK_MANIFEST=$(mktemp "$RUNNER_TEMP/immich-apk-manifest.XXXXXX.xml")
           trap 'rm -f "$APK_MANIFEST"' EXIT
           "$APKANALYZER" manifest print "$APK" > "$APK_MANIFEST"
@@ -70,7 +70,10 @@ jobs:
           RELEASE_CERT_SHA256: ${{ secrets.RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          test -n "$RELEASE_KEYSTORE_BASE64" && test -n "$RELEASE_KEYSTORE_PASSWORD" && test -n "$RELEASE_KEY_PASSWORD" && test -n "$RELEASE_CERT_SHA256"
+          : "${RELEASE_KEYSTORE_BASE64:?Missing signing secret RELEASE_KEYSTORE_BASE64}"
+          : "${RELEASE_KEYSTORE_PASSWORD:?Missing signing secret RELEASE_KEYSTORE_PASSWORD}"
+          : "${RELEASE_KEY_PASSWORD:?Missing signing secret RELEASE_KEY_PASSWORD}"
+          : "${RELEASE_CERT_SHA256:?Missing signing secret RELEASE_CERT_SHA256}"
           SIGN_DIR=$(mktemp -d "$RUNNER_TEMP/immich-private-signing.XXXXXX")
           trap 'rm -rf "$SIGN_DIR"' EXIT
           chmod 700 "$SIGN_DIR"
@@ -82,9 +85,9 @@ jobs:
           ./gradlew :app:assembleRelease
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
-          test -n "$APK" && test -n "$MANIFEST"
+          [[ -n "$APK" && -n "$MANIFEST" ]]
           APKANALYZER=$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer -executable | sort -V | tail -1)
-          test -n "$APKANALYZER" && test -x "$APKANALYZER"
+          [[ -n "$APKANALYZER" && -x "$APKANALYZER" ]]
           "$APKANALYZER" manifest print "$APK" > "$SIGN_DIR/apk-manifest.xml"
           test -s "$SIGN_DIR/apk-manifest.xml"
           python3 scripts/check_private_apk.py "$APK" --apk-manifest "$SIGN_DIR/apk-manifest.xml" --merged-manifest "$MANIFEST"
@@ -92,7 +95,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" > "$SIGN_DIR/verification.txt"
           ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$SIGN_DIR/verification.txt" | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
           EXPECTED=$(printf '%s' "$RELEASE_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
-          test -n "$ACTUAL" && test "$ACTUAL" = "$EXPECTED"
+          [[ "$ACTUAL" =~ ^[0-9a-f]{64}$ && "$ACTUAL" = "$EXPECTED" ]]
           mkdir -p deliverables
           cp "$APK" deliverables/ImmichTV-Private-1.0.0.apk
           sha256sum deliverables/ImmichTV-Private-1.0.0.apk > deliverables/SHA256SUMS.txt
