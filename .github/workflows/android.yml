@@ -16,6 +16,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Prepare verified Gradle 9.6.1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          grep -q 'gradle-9.6.1-all.zip' gradle/wrapper/gradle-wrapper.properties
+          GRADLE_DIST="$RUNNER_TEMP/gradle-dist"
+          mkdir -p "$GRADLE_DIST"
+          gh release download v9.6.1 --repo gradle/gradle-distributions --pattern gradle-9.6.1-bin.zip --dir "$GRADLE_DIST"
+          printf '%s  %s\n' '9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14' "$GRADLE_DIST/gradle-9.6.1-bin.zip" | sha256sum --check --strict
+          unzip -q "$GRADLE_DIST/gradle-9.6.1-bin.zip" -d "$GRADLE_DIST"
+          echo "$GRADLE_DIST/gradle-9.6.1/bin" >> "$GITHUB_PATH"
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -23,7 +36,7 @@ jobs:
       - name: Privacy regression audit
         run: python3 scripts/check_private_runtime.py
       - name: Unit tests, lint, and unsigned release
-        run: ./gradlew :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
+        run: gradle :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
       - name: Inspect release APK and merged manifest
         shell: bash
         run: |
@@ -57,6 +70,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Prepare verified Gradle 9.6.1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          grep -q 'gradle-9.6.1-all.zip' gradle/wrapper/gradle-wrapper.properties
+          GRADLE_DIST="$RUNNER_TEMP/gradle-dist"
+          mkdir -p "$GRADLE_DIST"
+          gh release download v9.6.1 --repo gradle/gradle-distributions --pattern gradle-9.6.1-bin.zip --dir "$GRADLE_DIST"
+          printf '%s  %s\n' '9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14' "$GRADLE_DIST/gradle-9.6.1-bin.zip" | sha256sum --check --strict
+          unzip -q "$GRADLE_DIST/gradle-9.6.1-bin.zip" -d "$GRADLE_DIST"
+          echo "$GRADLE_DIST/gradle-9.6.1/bin" >> "$GITHUB_PATH"
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -82,7 +108,7 @@ jobs:
           chmod 600 "$RELEASE_KEYSTORE_PATH"
           java scripts/ResolveSigningAlias.java "$RELEASE_KEYSTORE_PATH" "$SIGN_DIR/alias.txt"
           export RELEASE_KEY_ALIAS=$(cat "$SIGN_DIR/alias.txt")
-          ./gradlew :app:assembleRelease
+          gradle :app:assembleRelease
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
           [[ -n "$APK" && -n "$MANIFEST" ]]
