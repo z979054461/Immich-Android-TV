@@ -15,11 +15,6 @@
   -->
 
 <resources>
-
-
-    <!-- Strings for the "No Firebase" screen -->
-    <string name="no_firebase_title">Firebase не настроен</string>
-    <string name="no_firebase_body">Firebase не настроен для этого приложения. Это означает, что функции, зависящие от аккаунта, недоступны, а прогресс просмотра сохраняется локально. Чтобы включить функции Firebase, обратитесь к файлу readme.</string>
     <string name="continue_text">Продолжить</string>
 
     <!-- Menus -->
@@ -95,7 +90,6 @@
 
     <!-- Auth by phone -->
     <string name="scan_qr_below">Сканируйте QR-код ниже</string>
-    <string name="or_enter_code_on_site">Или введите код на https://immich.giejay.nl</string>
 
     <!-- Metadata -->
     <string name="metadata">Метаданные</string>

@@ -26,10 +26,6 @@
         app:destination="@id/authFragment" />
 
     <action
-        android:id="@+id/action_global_signInByPhoneFragment"
-        app:destination="@id/authByPhoneFragment" />
-
-    <action
         android:id="@+id/action_global_homeFragment"
         app:destination="@id/homeFragment" />
 
@@ -137,33 +133,9 @@
 
     <fragment
         android:id="@+id/authFragment"
-        android:name="nl.giejay.android.tv.immich.auth.AuthFragmentStep1"
-        android:label="Authentication">
-        <action
-            android:id="@+id/action_auth_to_auth_2"
-            app:destination="@id/authFragmentStep2" />
-
-        <action
-            android:id="@+id/action_auth_to_auth_by_phone"
-            app:destination="@id/authByPhoneFragment" />
-    </fragment>
-
-
-    <fragment
-        android:id="@+id/donateFragment"
-        android:name="nl.giejay.android.tv.immich.shared.donate.DonateFragment"
-        android:label="Donate">
-    </fragment>
-
-    <fragment
-        android:id="@+id/authFragmentStep2"
         android:name="nl.giejay.android.tv.immich.auth.AuthFragmentStep2"
-        android:label="Authentication"></fragment>
-
-    <fragment
-        android:id="@+id/authByPhoneFragment"
-        android:name="nl.giejay.android.tv.immich.auth.AuthByPhoneFragment"
-        android:label="Authentication"></fragment>
+        android:label="Authentication">
+    </fragment>
 
     <!--    <fragment-->
     <!--        android:id="@+id/playbackErrorFragment"-->
@@ -221,9 +193,6 @@
         <action
             android:id="@+id/action_homeFragment_to_photo_slider"
             app:destination="@id/photoSlider" />
-        <action
-            android:id="@+id/action_home_to_donate"
-            app:destination="@id/donateFragment" />
     </fragment>
 
     <dialog
@@ -262,15 +231,4 @@
         android:id="@+id/viewSettings"
         android:name="nl.giejay.android.tv.immich.settings.PrefSettingsFragment"
         android:label="ViewSettings"></fragment>
-
-    <fragment
-        android:id="@+id/noFirebaseFragment"
-        android:name="nl.giejay.android.tv.immich.auth.AuthByPhoneFragment"
-        android:label="NoFirebaseFragment">
-        <action
-            android:id="@+id/action_noFirebaseFragment_to_browseFragment"
-            app:destination="@id/homeFragment"
-            app:popUpTo="@id/noFirebaseFragment"
-            app:popUpToInclusive="true" />
-    </fragment>
 </navigation>

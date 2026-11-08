@@ -16,9 +16,6 @@ private const val TRANSFORMATION = "AES/GCM/NoPadding"
 private const val GCM_TAG_LENGTH_BITS = 128
 private const val GCM_IV_LENGTH_BYTES = 12
 private const val VERSION_PREFIX = "v1:"
-// accepted tradeoff: on the rare broken-keystore path this plaintext fallback is still subject
-// to whatever backup config the app has (currently none excludes it)
-private const val PLAINTEXT_FALLBACK_PREFIX = "plain:"
 
 /**
  * Encrypts the Immich API key with a key that never leaves AndroidKeyStore.
@@ -26,8 +23,7 @@ private const val PLAINTEXT_FALLBACK_PREFIX = "plain:"
  */
 object ApiKeyCipher {
 
-    // Never throws: falls back to a tagged plaintext form on a broken keystore instead of
-    // crashing app startup. Self-heals - retried on every subsequent save.
+    // Fail closed: if AndroidKeyStore fails, setup stops without persisting any plaintext.
     fun encrypt(plaintext: String): String {
         if (plaintext.isEmpty()) return ""
         return try {
@@ -35,20 +31,16 @@ object ApiKeyCipher {
             val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
             VERSION_PREFIX + Base64.encodeToString(cipher.iv + ciphertext, Base64.NO_WRAP)
         } catch (e: Exception) {
-            Timber.e(e, "Could not encrypt API key, falling back to unencrypted storage for now")
-            PLAINTEXT_FALLBACK_PREFIX + plaintext
+            throw IllegalStateException("Secure storage unavailable")
         }
     }
 
-    // Never throws: an unrecognized/corrupt value degrades to "" (logged out). A value from
-    // before encryption existed has no prefix at all, so it's returned as-is for the caller to
-    // re-save (migrate).
+    // Unknown/legacy plaintext values are rejected, never adopted.
     fun decryptOrAdoptLegacy(stored: String): String {
         return when {
             stored.isEmpty() -> ""
-            stored.startsWith(PLAINTEXT_FALLBACK_PREFIX) -> stored.removePrefix(PLAINTEXT_FALLBACK_PREFIX)
             stored.startsWith(VERSION_PREFIX) -> decrypt(stored.removePrefix(VERSION_PREFIX))
-            else -> stored
+            else -> ""
         }
     }
 
@@ -58,7 +50,7 @@ object ApiKeyCipher {
     private fun decrypt(base64: String): String {
         // no key at all (keystore wiped/restored elsewhere) is an expected, silent logout -
         // not an error, and mustn't generate a fresh unusable key as a side effect of reading
-        val key = getExistingKey() ?: return ""
+        val key = try { getExistingKey() } catch (_: Exception) { null } ?: return ""
         val combined = try {
             Base64.decode(base64, Base64.NO_WRAP)
         } catch (e: IllegalArgumentException) {

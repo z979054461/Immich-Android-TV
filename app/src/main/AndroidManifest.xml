@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!--
   ~ Copyright 2020 Google LLC
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,34 +14,15 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- Access internet-based media -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Donation -->
-    <uses-permission android:name="com.android.vending.BILLING" />
-
-    <!-- For writing to home screen channels -->
-    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
-
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
-
-    <!-- Touch screen is not required -->
-    <uses-feature
-        android:name="android.hardware.touchscreen"
-        android:required="false" />
-
-    <!-- This is an Android TV app only (not intended for mobile) -->
-    <uses-feature
-        android:name="android.software.leanback"
-        android:required="true" />
-
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="true" />
     <application
-        android:name="nl.giejay.android.tv.immich.ImmichApplication"
-        android:allowBackup="true"
-        android:fullBackupContent="true"
+        android:name=".ImmichApplication"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/private_data_extraction_rules"
         android:icon="@drawable/icon"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="true"
@@ -50,85 +32,25 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
-        <!-- Runs before Application.onCreate() and before any other provider with a lower
-             initOrder (FirebaseInitProvider is at 100, this is set higher so it always wins). -->
-        <provider
-            android:name="nl.giejay.android.tv.immich.AppContextInitializer"
+        <provider android:name=".AppContextInitializer"
             android:authorities="${applicationId}.appcontextinitializer"
-            android:exported="false"
-            android:initOrder="2147483647" />
-
-        <service
-            android:name="nl.giejay.android.tv.immich.screensaver.ScreenSaverService"
-            android:exported="true"
-            android:label="Immich"
+            android:exported="false" android:initOrder="2147483647" />
+        <service android:name=".screensaver.ScreenSaverService"
+            android:exported="true" android:label="@string/app_name"
             android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />
                 <action android:name="android.service.dreams.DreamService" />
             </intent-filter>
-
-            <!-- Point to additional information for this dream (optional) -->
-            <meta-data
-                android:name="android.service.dream"
-                android:resource="@xml/screensaver" />
+            <meta-data android:name="android.service.dream" android:resource="@xml/screensaver" />
         </service>
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTask"
-            android:configChanges="keyboard|keyboardHidden|navigation">
-
-            <!-- Used as the main entry point from the leanback launcher -->
+        <activity android:name=".MainActivity" android:exported="true"
+            android:launchMode="singleTask" android:configChanges="keyboard|keyboardHidden|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.LAUNCHER" />
-<!--                <category android:name="android.intent.category.HOME" />-->
             </intent-filter>
-
-            <intent-filter>
-                <action android:name="com.google.android.gms.cast.tv.action.LAUNCH" />
-                <action android:name="com.google.android.gms.cast.tv.action.LOAD"/>
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
-            <!-- Deep links from home screen channel programs/channels, see homescreenchannels.ChannelDeepLinks -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="immichtv" />
-            </intent-filter>
-
         </activity>
-
-        <!-- BroadcastReceiver for setting up the home screen channel -->
-        <receiver
-            android:name="nl.giejay.android.tv.immich.homescreenchannels.HomeScreenChannelReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.media.tv.action.INITIALIZE_PROGRAMS" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.media.tv.action.PREVIEW_PROGRAM_BROWSABLE_DISABLED" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </receiver>
-
-        <!--
-         ~ Options provider class for Cast Connect when CastReceiverContext
-         ~ is initialised. More information can be found at -
-         ~ https://developers.google.com/cast/docs/android_tv_receiver/core_features#specify_receiver_options_provider
-        -->
-        <meta-data
-            android:name="com.google.android.gms.cast.tv.RECEIVER_OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="nl.giejay.android.tv.immich.castconnect.CastReceiverOptionsProvider" />
-
     </application>
-
 </manifest>

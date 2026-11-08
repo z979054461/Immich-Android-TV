@@ -4,8 +4,6 @@ import arrow.core.Either
 import com.google.gson.Gson
 import nl.giejay.android.tv.immich.api.model.ImmichErrorResponse
 import nl.giejay.android.tv.immich.api.model.toDisplayMessage
-import nl.giejay.android.tv.immich.shared.prefs.API_KEY
-import nl.giejay.android.tv.immich.shared.prefs.HOST_NAME
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import retrofit2.HttpException
 import retrofit2.Response
@@ -14,12 +12,10 @@ import java.util.UUID
 
 object ApiUtil {
 
-    fun getThumbnailUrl(assetId: String?, format: String, loadEdited: Boolean = false, includeApiKey: Boolean = false): String? {
+    fun getThumbnailUrl(assetId: String?, format: String, loadEdited: Boolean = false): String? {
         return assetId?.let {
-            val base = "${hostName().lowercase()}/api/assets/${it}/thumbnail?size=${format}&edited=${loadEdited}"
-            // api key is added here for home screen channel poster art, since the launcher fetches it
-            // in its own process, without our OkHttp interceptor
-            if (includeApiKey) "${base}&apiKey=${PreferenceManager.get(API_KEY)}" else base
+            val base = "${hostName()}/api/assets/${it}/thumbnail?size=${format}&edited=${loadEdited}"
+            base
         }
     }
 
@@ -30,27 +26,25 @@ object ApiUtil {
     fun getFileUrl(assetId: String?, type: String, forceOriginal: Boolean = false, loadEdited: Boolean = false): String? {
         if(forceOriginal){
             return assetId?.let {
-                // api key is added here if the user wants to open a video in an external video player, since the external player will not have access to the api key otherwise
-                "${hostName().lowercase()}/api/assets/${it}/original?apiKey=${PreferenceManager.get(API_KEY)}"
+                "${hostName()}/api/assets/${it}/original"
             }
         }
         return when (type) {
             "VIDEO" ->
                 assetId?.let {
-                    // api key is added here if the user wants to open a video in an external video player, since the external player will not have access to the api key otherwise
-                    "${hostName().lowercase()}/api/assets/${it}/video/playback?apiKey=${PreferenceManager.get(API_KEY)}"
+                        "${hostName()}/api/assets/${it}/video/playback"
                 }
 
             else ->
                 assetId?.let {
-                    "${hostName().lowercase()}/api/assets/${it}/original?edited=${loadEdited}"
+                    "${hostName()}/api/assets/${it}/original?edited=${loadEdited}"
                 }
 
         }
     }
 
     fun getPersonThumbnail(personId: UUID): String {
-        return "${hostName().lowercase()}/api/people/$personId/thumbnail"
+        return "${hostName()}/api/people/$personId/thumbnail"
     }
 
     suspend fun <T> executeAPICall(expectedStatus: Int, handler: suspend () -> Response<T>): Either<String, T> {
@@ -65,7 +59,7 @@ object ApiUtil {
                 else -> {
                     val bodyString: String? = res.errorBody()?.string()
                     if(bodyString?.contains("required permission: all") == true){
-                        Either.Left("API key is missing the permission \"all\". Please adapt your permissions in the Immich web interface.")
+                        Either.Left("API key lacks a required permission. Grant only the read permissions needed by this screen.")
                     } else {
                         val parsed = parseErrorBodySafely(bodyString)
                         val baseMessage = parsed?.message?.toDisplayMessage(bodyString ?: "Unknown error") ?: (bodyString ?: "Unknown error")
@@ -84,7 +78,7 @@ object ApiUtil {
             return Either.Left("Could not fetch data from API, status: ${e.code()}")
         } catch (e: Exception) {
             Timber.e(e, "Could not fetch items, unknown error")
-            return Either.Left("Could not fetch data from API, response: ${e.message}")
+            return Either.Left("Could not connect to your Immich server. Check address, certificate and API key permissions.")
         }
     }
 

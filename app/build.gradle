@@ -2,8 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias libs.plugins.android.application
-    alias libs.plugins.google.gms.google.services
-    alias libs.plugins.google.firebase.crashlytics
     id 'kotlin-parcelize'
     alias libs.plugins.navigation.safeargs.kotlin
     alias libs.plugins.google.devtools.ksp
@@ -12,11 +10,11 @@ plugins {
 android {
     compileSdk = 37
     defaultConfig {
-        applicationId "nl.giejay.android.tv.immich"
+        applicationId "io.github.z979054461.immichtv"
         minSdkVersion 24
         targetSdkVersion 37
-        versionCode 147
-        versionName "6.1.0"
+        versionCode 10000
+        versionName "1.0.0-private"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testOptions.unitTests.includeAndroidResources = true
@@ -36,7 +34,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (System.getenv("RELEASE_KEYSTORE_PATH")) signingConfig signingConfigs.release
         }
     }
 
@@ -65,7 +63,7 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("ImmichTV-${output.versionName.get()}.apk")
+            output.outputFileName.set("ImmichTV-Private-${output.versionName.get()}.apk")
         }
     }
 }
@@ -93,22 +91,8 @@ dependencies {
     implementation libs.androidx.leanback.preference
     implementation libs.arrow.core
 
-    implementation platform(libs.firebase.bom)
-    implementation libs.firebase.analytics
-    implementation libs.firebase.crashlytics
-
-    // Cast library used for Cast Connect feature
-//    implementation "com.google.android.gms:play-services-cast-tv:$cast_tv_version"
-//    implementation "com.google.android.gms:play-services-cast:$cast_version"
 
     debugImplementation libs.androidx.fragment.testing
-
-    // Work library used for simplifying work done in the background
-//    def work_version = "2.7.1"
-//    implementation "androidx.work:work-runtime:$work_version"
-
-    // TV provider library used for updating home screen channels
-    implementation libs.androidx.tvprovider
 
     implementation libs.rxandroid
     implementation libs.rxjava
@@ -116,15 +100,14 @@ dependencies {
     // Exoplayer for playback (timeline focus preview + slider)
     implementation libs.androidx.media3.exoplayer
     implementation libs.androidx.media3.ui
+    implementation libs.androidx.media3.datasource.okhttp
 
-    implementation libs.billing.ktx
 
     implementation libs.gson
     implementation libs.glide
     implementation libs.okhttp3.integration
 
     // Google Play Services for identity
-    implementation libs.play.services.auth
 
     // Retrofit for HTTP requests
     implementation libs.retrofit
@@ -134,12 +117,12 @@ dependencies {
     implementation(libs.timber)
 
     // qr
-    implementation libs.custom.qr.generator
 
     ksp libs.glide.ksp
 
     // Testing libraries
     testImplementation libs.junit
+    testImplementation "com.squareup.okhttp3:mockwebserver:4.12.0"
     testImplementation libs.core.testing
     testImplementation libs.androidx.core
     testImplementation libs.androidx.rules
@@ -153,9 +136,5 @@ dependencies {
     testImplementation libs.mockito.kotlin
     testImplementation libs.robolectric
 
-    testImplementation libs.google.api.services.androidpublisher
-    testImplementation libs.org.eclipse.jgit
-    testImplementation libs.google.auth.library.oauth2.http
-    testImplementation libs.google.api.client
 
 }

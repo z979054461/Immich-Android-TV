@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="private_manual_setup">Connect directly to your own Immich server. Enter its URL and API key using your TV remote or keyboard. No pairing service is used. Re-enter the API key when changing these settings.</string>
+    <string name="private_invalid_server">Use a complete HTTP or HTTPS server URL without credentials, spaces, query parameters, or a fragment.</string>
+    <string name="private_http_warning_title">Unencrypted HTTP connection</string>
+    <string name="private_http_warning">HTTP exposes your API key, photos, and videos to anyone who can intercept the connection. Use it only on a trusted private LAN. HTTPS is recommended. Continue with HTTP?</string>
+    <string name="private_save_failed">Could not save the connection securely. Please try again.</string>
+    <string name="private_disconnect">Disconnect and remove the saved connection</string>
+</resources>

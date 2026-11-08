@@ -19,3 +19,14 @@ mediasliderold
 mediaslider2
 commits.txt
 service-account-key.json
+# Never commit signing or service credentials
+*.jks
+*.keystore
+.env
+.env.*
+!*.example
+app/google-services.json
+app/src/main/res/values/strings_other.xml
+
+__pycache__/
+*.pyc

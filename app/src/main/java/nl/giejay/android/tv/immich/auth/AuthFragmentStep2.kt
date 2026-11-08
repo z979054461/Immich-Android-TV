@@ -1,123 +1,151 @@
 package nl.giejay.android.tv.immich.auth
 
-import android.graphics.drawable.Drawable
+import android.app.AlertDialog
 import android.os.Bundle
 import android.text.InputType
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
-import androidx.leanback.app.GuidedStepSupportFragment
-import androidx.leanback.widget.GuidanceStylist
-import androidx.leanback.widget.GuidedAction
-import androidx.leanback.widget.GuidedActionEditText
+import androidx.fragment.app.Fragment
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import nl.giejay.android.tv.immich.R
-import nl.giejay.android.tv.immich.shared.guidedstep.GuidedStepUtil.addAction
-import nl.giejay.android.tv.immich.shared.guidedstep.GuidedStepUtil.addCheckedAction
-import nl.giejay.android.tv.immich.shared.guidedstep.GuidedStepUtil.addEditableAction
+import nl.giejay.android.tv.immich.api.ServerPolicy
 import nl.giejay.android.tv.immich.shared.prefs.API_KEY
-import nl.giejay.android.tv.immich.shared.prefs.DEBUG_MODE
-import nl.giejay.android.tv.immich.shared.prefs.DISABLE_SSL_VERIFICATION
 import nl.giejay.android.tv.immich.shared.prefs.HOST_NAME
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_ALBUMS
-import timber.log.Timber
 
+/** Manual-only setup. Credentials never enter saved-instance state or logging. */
+class AuthFragmentStep2 : Fragment() {
+    private var keyInput: EditText? = null
+    private var warning: AlertDialog? = null
+    private var submitting = false
 
-data class AuthSettings(val hostName: String, val apiKey: String) {
-    fun isValid(): Boolean {
-        return PreferenceManager.isValid(hostName, apiKey)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?): View {
+        val context = requireContext()
+        val padding = (32 * resources.displayMetrics.density).toInt()
+        val form = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding, padding, padding)
+        }
+        fun label(text: String, size: Float = 20f) {
+            form.addView(TextView(context).apply { this.text = text; textSize = size })
+        }
+        label(getString(R.string.app_name), 28f)
+        label(getString(R.string.private_manual_setup))
+        label(getString(R.string.server_url_text))
+        val server = EditText(context).apply {
+            id = View.generateViewId()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
+            setText(PreferenceManager.hostName)
+            hint = "https://immich.example.local"
+            imeOptions = EditorInfo.IME_ACTION_NEXT or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            isSaveEnabled = false
+        }
+        form.addView(server)
+        label(getString(R.string.api_key_text))
+        val key = EditText(context).apply {
+            id = View.generateViewId()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            // Never show or prefill the stored key, including when changing servers.
+            hint = getString(R.string.enter_api_key)
+            imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            isSaveEnabled = false
+            if (android.os.Build.VERSION.SDK_INT >= 26) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        keyInput = key
+        form.addView(key)
+        val submitButton = Button(context).apply {
+            id = View.generateViewId()
+            text = getString(R.string.submit)
+            setOnClickListener { submit(server, key) }
+        }
+        form.addView(submitButton)
+        if (PreferenceManager.isLoggedId()) {
+            form.addView(Button(context).apply {
+                text = getString(R.string.private_disconnect)
+                setOnClickListener {
+                    PreferenceManager.removeApiSettings()
+                    key.text.clear()
+                    server.text.clear()
+                    isEnabled = false
+                    server.requestFocus()
+                }
+            })
+        }
+        server.nextFocusDownId = key.id
+        key.nextFocusUpId = server.id
+        key.nextFocusDownId = submitButton.id
+        submitButton.nextFocusUpId = key.id
+        key.setOnEditorActionListener { _, action, _ ->
+            if (action == EditorInfo.IME_ACTION_DONE) { submitButton.performClick(); true } else false
+        }
+        server.requestFocus()
+        return ScrollView(context).apply { addView(form); isSaveEnabled = false }
     }
-}
 
-class AuthFragmentStep2 : GuidedStepSupportFragment() {
-    private val ACTION_NAME = 0L
-    private val ACTION_API_KEY = 1L
-    private val ACTION_CHECK_CERTS = 2L
-    private val ACTION_DEBUG_MODE = 3L
-    private val ACTION_CONTINUE = 4L
-
-    override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
-        val icon: Drawable = requireContext().getDrawable(R.drawable.icon)!!
-        return GuidanceStylist.Guidance(
-            getString(R.string.app_name),
-            getString(R.string.login_immich_description),
-            "",
-            icon
-        )
-    }
-
-    override fun onCreateActions(actions: MutableList<GuidedAction>, savedInstanceState: Bundle?) {
-        addEditableAction(
-            actions,
-            ACTION_NAME,
-            getString(R.string.server_url_hint),
-            PreferenceManager.hostName,
-            InputType.TYPE_CLASS_TEXT
-        )
-        addEditableAction(
-            actions,
-            ACTION_API_KEY,
-            getString(R.string.api_key_text),
-            PreferenceManager.get(API_KEY),
-            InputType.TYPE_CLASS_TEXT
-        )
-        addCheckedAction(
-            actions,
-            ACTION_CHECK_CERTS,
-            getString(R.string.disable_ssl_verification),
-            getString(R.string.disable_ssl_verification_desc),
-            PreferenceManager.get(DISABLE_SSL_VERIFICATION)
-        )
-        addCheckedAction(
-            actions,
-            ACTION_DEBUG_MODE,
-            getString(R.string.debug_mode),
-            getString(R.string.debug_mode_desc),
-            PreferenceManager.get(DEBUG_MODE)
-        )
-    }
-
-    override fun onCreateButtonActions(
-        actions: MutableList<GuidedAction>,
-        savedInstanceState: Bundle?
-    ) {
-        super.onCreateButtonActions(actions, savedInstanceState)
-        addAction(actions, ACTION_CONTINUE, getString(R.string.submit), "")
-    }
-
-    override fun onGuidedActionClicked(action: GuidedAction) {
-        super.onGuidedActionClicked(action)
-        val entry = AuthSettings(getState(ACTION_NAME), getState(ACTION_API_KEY))
-        Timber.i("Clicked on ${action.title} in step 2, entry valid: ${entry.isValid()}")
-        if (action.id == ACTION_CONTINUE) {
-            if (entry.isValid()) {
-                PreferenceManager.save(SCREENSAVER_ALBUMS, emptySet())
-                PreferenceManager.save(API_KEY, entry.apiKey)
-                PreferenceManager.save(HOST_NAME, entry.hostName)
-                PreferenceManager.save(DISABLE_SSL_VERIFICATION, findActionById(ACTION_CHECK_CERTS)?.isChecked == true)
-                PreferenceManager.save(DEBUG_MODE, findActionById(ACTION_DEBUG_MODE)?.isChecked == true)
-                val navControl = findNavController()
-                navControl.navigate(AuthFragmentStep2Directions.actionGlobalHomeFragment(), NavOptions.Builder().setPopUpTo(R.id.authFragment, true).build())
-            } else if (entry.hostName.isEmpty()) {
-                Toast.makeText(activity, getString(R.string.enter_server_url), Toast.LENGTH_SHORT)
-                    .show()
-            } else if (entry.apiKey.isEmpty()) {
-                Toast.makeText(
-                    activity,
-                    getString(R.string.enter_api_key),
-                    Toast.LENGTH_LONG
-                ).show()
-            } else {
-                Toast.makeText(activity, getString(R.string.enter_valid_server_url), Toast.LENGTH_SHORT)
-                    .show()
-            }
+    private fun submit(server: EditText, key: EditText) {
+        if (submitting || warning?.isShowing == true) return
+        val host = try {
+            ServerPolicy.normalizeServer(server.text.toString())
+        } catch (_: IllegalArgumentException) {
+            server.error = getString(R.string.private_invalid_server)
+            server.requestFocus()
+            return
+        }
+        if (!ServerPolicy.isValidApiKey(key.text.toString())) {
+            key.error = getString(R.string.enter_api_key)
+            key.requestFocus()
+            return
+        }
+        if (host.startsWith("http://")) {
+            warning = AlertDialog.Builder(requireContext())
+                .setTitle(R.string.private_http_warning_title)
+                .setMessage(R.string.private_http_warning)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.continue_text) { _, _ -> save(host, key) }
+                .show()
+            // Default to the safe choice for TV remotes.
+            warning?.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+        } else {
+            save(host, key)
         }
     }
 
-    private fun getState(actionId: Long): String {
-        // there really does not seem to be a better way to handle hardware keyboard input or for example: adb shell input text myText
-        // https://github.com/giejay/Immich-Android-TV/issues/4
-        val position = findActionPositionById(actionId)
-        return getActionItemView(position)?.findViewById<GuidedActionEditText>(R.id.guidedactions_item_description)?.text.toString()
+    private fun save(host: String, key: EditText) {
+        if (submitting || !isAdded) return
+        submitting = true
+        try {
+            PreferenceManager.saveApiSettings(host, key.text.toString())
+            PreferenceManager.save(SCREENSAVER_ALBUMS, emptySet())
+            key.text.clear()
+            findNavController().navigate(
+                R.id.action_global_homeFragment, null,
+                NavOptions.Builder().setPopUpTo(R.id.authFragment, true).build()
+            )
+        } catch (_: Exception) {
+            // No exception text: encryption/network implementations may include private data.
+            Toast.makeText(context, R.string.private_save_failed, Toast.LENGTH_LONG).show()
+            submitting = false
+        }
+    }
+
+    override fun onDestroyView() {
+        warning?.dismiss()
+        warning = null
+        keyInput?.text?.clear()
+        keyInput = null
+        submitting = false
+        super.onDestroyView()
     }
 }

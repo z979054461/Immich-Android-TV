@@ -16,9 +16,6 @@
   -->
 
 <resources>
-    <!-- Strings for the "No Firebase" screen -->
-    <string name="no_firebase_title">Firebase 未配置</string>
-    <string name="no_firebase_body">尚未为本应用配置 Firebase。这意味着所有与账户相关的功能均不可用，观看进度将保存在本地。如需启用 Firebase 功能，请参阅 README 文件。</string>
     <string name="continue_text">继续</string>
 
     <!-- Menus -->
@@ -91,7 +88,6 @@
 
     <!-- Auth by phone -->
     <string name="scan_qr_below">扫描下方二维码</string>
-    <string name="or_enter_code_on_site">或在 https://immich.giejay.nl 输入该代码</string>
 
     <!-- Metadata -->
     <string name="metadata">元数据</string>

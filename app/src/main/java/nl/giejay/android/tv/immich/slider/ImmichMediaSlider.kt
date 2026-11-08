@@ -7,7 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSource
+import nl.giejay.android.tv.immich.api.PrivateMediaDataSource
 import androidx.navigation.fragment.findNavController
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.shared.prefs.API_KEY
@@ -44,8 +45,7 @@ class ImmichMediaSlider : MediaSliderFragment() {
         }
 
         setDefaultExoFactory(
-            DefaultHttpDataSource.Factory()
-                .setDefaultRequestProperties(mapOf("x-api-key" to PreferenceManager.get(API_KEY)))
+            PrivateMediaDataSource.factory()
         )
 
         if (bundle.timelineView) {

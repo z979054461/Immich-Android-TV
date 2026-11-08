@@ -12,8 +12,6 @@ import nl.giejay.android.tv.immich.api.ApiClient
 import nl.giejay.android.tv.immich.api.ApiClientConfig
 import nl.giejay.android.tv.immich.api.model.Asset
 import nl.giejay.android.tv.immich.shared.prefs.API_KEY
-import nl.giejay.android.tv.immich.shared.prefs.DEBUG_MODE
-import nl.giejay.android.tv.immich.shared.prefs.DISABLE_SSL_VERIFICATION
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.mediaslider.model.MetaDataProvider
 import nl.giejay.mediaslider.model.MetaDataType
@@ -22,12 +20,7 @@ import timber.log.Timber
 class AlbumMetaDataProvider(private val assetId: String) : MetaDataProvider {
     override suspend fun getValue(): String? {
         val map: Either<String, String> = ApiClient.getClient(
-            ApiClientConfig(
-                PreferenceManager.hostName,
-                PreferenceManager.get(API_KEY),
-                PreferenceManager.get(DISABLE_SSL_VERIFICATION),
-                PreferenceManager.get(DEBUG_MODE)
-            )
+            ApiClientConfig.fromPrefs()
         ).listAlbums(Option.invoke(assetId)).map { albums ->
             albums.distinct().joinToString(", ") { it.albumName }
         }
@@ -79,12 +72,7 @@ object AssetDetailCache {
 
     private val defaultFetch: suspend (String) -> Either<String, Asset> = { assetId ->
         val client = ApiClient.getClient(
-            ApiClientConfig(
-                PreferenceManager.hostName,
-                PreferenceManager.get(API_KEY),
-                PreferenceManager.get(DISABLE_SSL_VERIFICATION),
-                PreferenceManager.get(DEBUG_MODE)
-            )
+            ApiClientConfig.fromPrefs()
         )
         client.getAsset(assetId)
     }

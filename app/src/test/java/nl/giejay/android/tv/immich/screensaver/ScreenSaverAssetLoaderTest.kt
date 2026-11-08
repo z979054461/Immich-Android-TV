@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import nl.giejay.android.tv.immich.ImmichApplication
 import nl.giejay.android.tv.immich.api.ApiClient
+import nl.giejay.android.tv.immich.api.ApiClientConfig
 import nl.giejay.android.tv.immich.api.MAX_SEARCH_PAGE_SIZE
 import nl.giejay.android.tv.immich.api.model.Asset
 import nl.giejay.android.tv.immich.api.model.AssetResponse
@@ -89,6 +90,7 @@ class ScreenSaverAssetLoaderTest {
         }.get(PreferenceManager) as MutableMap<String, Any?>
         liveContext.clear()
         preferenceValues.clear()
+        setActiveConnection(ApiClientConfig("", "", false, false))
     }
 
     @After
@@ -99,6 +101,7 @@ class ScreenSaverAssetLoaderTest {
         }.get(PreferenceManager) as MutableMap<String, Any?>
         liveContext.clear()
         preferenceValues.clear()
+        setActiveConnection(ApiClientConfig("", "", false, false))
         ImmichApplication.appContext = null
         Dispatchers.resetMain()
     }
@@ -271,6 +274,7 @@ class ScreenSaverAssetLoaderTest {
     ) = runTest {
         setPreference(HOST_NAME, "https://example.com")
         setPreference(API_KEY, "api-key")
+        setActiveConnection(ApiClientConfig("https://example.com", "api-key", false, false))
         setPreference(SCREENSAVER_TYPE, type)
         setPreference(SCREENSAVER_ALBUMS, albums)
         setPreference(EXCLUDE_ASSETS_IN_ALBUM, excludedAlbums)
@@ -297,6 +301,12 @@ class ScreenSaverAssetLoaderTest {
 
             verifyResult(configurationCaptor.firstValue, apiClient)
         }
+    }
+
+    private fun setActiveConnection(config: ApiClientConfig) {
+        PreferenceManager.javaClass.getDeclaredField("activeConnection").apply {
+            isAccessible = true
+        }.set(PreferenceManager, config)
     }
 
     private fun <T> setPreference(pref: Pref<T, *, *>, value: T) {

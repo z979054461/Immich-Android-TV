@@ -14,14 +14,14 @@ import nl.giejay.mediaslider.adapter.MetaDataMediaCount
 import nl.giejay.mediaslider.adapter.MetaDataSliderItem
 import nl.giejay.mediaslider.model.MetaDataType
 import nl.giejay.mediaslider.plugin.DateOverlayViewPlugin
-import nl.giejay.mediaslider.plugin.ExternalPlayerButtonControllerPlugin
 import nl.giejay.mediaslider.plugin.MediaRemoteControlsKeyEventPlugin
 import nl.giejay.mediaslider.plugin.MetadataViewPlugin
 import nl.giejay.mediaslider.plugin.SliderControllerPlugin
 import nl.giejay.mediaslider.plugin.SliderKeyEventPlugin
 import nl.giejay.mediaslider.plugin.SliderViewPlugin
 import nl.giejay.mediaslider.util.MetaDataConverter
-import okhttp3.HttpUrl
+import nl.giejay.android.tv.immich.api.ServerPolicy
+import nl.giejay.android.tv.immich.api.ApiClientConfig
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.reflect.KClass
 
@@ -40,6 +40,10 @@ object PreferenceManager {
     lateinit var sharedPreference: SharedPreferences
     private lateinit var liveSharedPreferences: LiveSharedPreferences
 
+    @Volatile private var activeConnection = ApiClientConfig("", "", false, false)
+
+    fun connectionSnapshot(): ApiClientConfig = activeConnection
+
     // stores the typed values, not the internal PrefTypes (String, Int)
     private val liveContext: MutableMap<String, Any?> = mutableMapOf()
 
@@ -51,6 +55,7 @@ object PreferenceManager {
         sharedPreference = PreferenceManager.getDefaultSharedPreferences(context)
         liveSharedPreferences = LiveSharedPreferences(sharedPreference)
         migrateApiKeyIfNeeded()
+        activeConnection = ApiClientConfig(HOST_NAME.getValue(sharedPreference), API_KEY.getValue(sharedPreference), false, false)
         subclasses(Pref::class).filter { it.objectInstance != null }.forEach { pref ->
             val prefInstance = pref.objectInstance!! as Pref<Any, *, *>
             liveSharedPreferences.subscribeTyped(prefInstance) { typeValue ->
@@ -59,12 +64,11 @@ object PreferenceManager {
         }
     }
 
-    // one-time, before the subscription loop below reads it: re-save a legacy-plaintext or
-    // previously-unencryptable API key now that ApiKeyCipher can (re)try encrypting it
+    // Reject any plaintext credential left by an unsupported import before subscriptions read it.
     private fun migrateApiKeyIfNeeded() {
         val raw = sharedPreference.getString(API_KEY.key(), "") ?: return
         if (raw.isNotEmpty() && !ApiKeyCipher.isEncrypted(raw)) {
-            API_KEY.save(sharedPreference, ApiKeyCipher.decryptOrAdoptLegacy(raw))
+            sharedPreference.edit().remove(API_KEY.key()).apply() // Never adopt plaintext credentials in this fork.
         }
     }
 
@@ -74,11 +78,12 @@ object PreferenceManager {
     }
 
     val hostName: String
-        get() = get(HOST_NAME).replace("\\s".toRegex(), "").removeSuffix("/")
+        get() = activeConnection.hostName.trim().removeSuffix("/")
 
     fun <T, PREFTYPE> save(key: Pref<T, *, PREFTYPE>, value: T) {
-        liveContext[key.key()] = value
+        require(key.key() != API_KEY.key() && key.key() != HOST_NAME.key()) { "Use atomic connection setup" }
         key.save(sharedPreference, value)
+        liveContext[key.key()] = value
     }
 
     fun <T> subscribe(key: Pref<T, *, *>, onChange: (T) -> Unit) {
@@ -90,16 +95,40 @@ object PreferenceManager {
     }
 
     fun isLoggedId(): Boolean {
-        return isValid(get(HOST_NAME), get(API_KEY))
+        val connection = activeConnection
+        return isValid(connection.hostName, connection.apiKey)
     }
 
     fun isValid(hostName: String?, apiKey: String?): Boolean {
-        return hostName?.isNotBlank() == true && apiKey?.isNotBlank() == true && hostName.toHttpUrlOrNull() != null
+        return hostName != null && apiKey != null && ServerPolicy.isValidApiKey(apiKey) && runCatching { ServerPolicy.normalizeServer(hostName) }.isSuccess
     }
 
+    /** Network readers receive one immutable host/key pair, published only after durable save. */
+    @Synchronized
+    fun saveApiSettings(host: String, key: String) {
+        val normalized = ServerPolicy.normalizeServer(host)
+        require(ServerPolicy.isValidApiKey(key))
+        val encrypted = ApiKeyCipher.encrypt(key)
+        // Invalidate old sessions before mutating backing preferences. No mixed pair can be used.
+        activeConnection = ApiClientConfig("", "", false, false)
+        if (!sharedPreference.edit().putString(HOST_NAME.key(), normalized)
+                .putString(API_KEY.key(), encrypted).commit()) {
+            liveContext[HOST_NAME.key()] = ""
+            liveContext[API_KEY.key()] = ""
+            sharedPreference.edit().remove(HOST_NAME.key()).remove(API_KEY.key()).apply()
+            throw IllegalStateException("Could not persist connection settings")
+        }
+        liveContext[HOST_NAME.key()] = normalized
+        liveContext[API_KEY.key()] = key
+        activeConnection = ApiClientConfig(normalized, key, false, false)
+    }
+
+    @Synchronized
     fun removeApiSettings() {
-        save(HOST_NAME, "")
-        save(API_KEY, "")
+        activeConnection = ApiClientConfig("", "", false, false)
+        liveContext[HOST_NAME.key()] = ""
+        liveContext[API_KEY.key()] = ""
+        sharedPreference.edit().remove(HOST_NAME.key()).remove(API_KEY.key()).apply()
     }
 
     private fun removeStringSetItem(item: String, prefKey: StringSetPref) {
@@ -199,7 +228,6 @@ object PreferenceManager {
         return EnabledSliderPlugins(
             controllerPlugins = listOf(
                 FavoriteButtonControllerPlugin(favoriteService, scope),
-                ExternalPlayerButtonControllerPlugin(),
                 metadataPlugin
             ),
             viewPlugins = listOf(metadataPlugin, DateOverlayViewPlugin()),

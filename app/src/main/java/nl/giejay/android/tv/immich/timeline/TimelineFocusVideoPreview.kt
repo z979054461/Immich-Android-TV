@@ -14,7 +14,8 @@ import android.widget.TextView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSource
+import nl.giejay.android.tv.immich.api.PrivateMediaDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
@@ -49,9 +50,8 @@ class TimelineFocusVideoPreview(context: Context) {
     private var totalDurationSeconds: Long = 0L
     private var currentAssetId: String? = null
 
-    private val dataSourceFactory: DefaultHttpDataSource.Factory by lazy {
-        DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(mapOf("x-api-key" to PreferenceManager.get(API_KEY)))
+    private val dataSourceFactory: DataSource.Factory by lazy {
+        PrivateMediaDataSource.factory()
     }
 
     private val countdownTicker = object : Runnable {

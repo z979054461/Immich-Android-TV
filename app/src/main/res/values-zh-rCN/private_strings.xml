@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="private_manual_setup">直接连接你自己的 Immich。用电视遥控器或键盘填写服务器地址和专用 API 密钥，不经过手机配对中转站。更改连接时需重新输入密钥。</string>
+    <string name="private_invalid_server">请填写完整的 HTTP 或 HTTPS 地址，不要包含账号密码、空格、查询参数或片段。</string>
+    <string name="private_http_warning_title">当前连接没有加密</string>
+    <string name="private_http_warning">HTTP 可能让能截获网络流量的人看到 API 密钥、照片和视频。仅在可信的家庭局域网使用，推荐 HTTPS。仍要使用 HTTP 吗？</string>
+    <string name="private_save_failed">无法安全保存连接，请重试。如果电视安全存储不可用，应用不会明文保存密钥。</string>
+    <string name="private_disconnect">断开连接并移除保存的密钥</string>
+</resources>

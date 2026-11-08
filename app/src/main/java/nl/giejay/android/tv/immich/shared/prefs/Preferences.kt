@@ -1,36 +1,25 @@
 package nl.giejay.android.tv.immich.shared.prefs;
 
 import android.app.AlertDialog
+import android.view.LayoutInflater
+import android.view.View
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
-import android.view.LayoutInflater
-import android.view.View
-import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.navigation.NavController
 import androidx.preference.ListPreference
 import androidx.preference.Preference
-import com.github.alexzhirkevich.customqrgenerator.QrData
-import com.github.alexzhirkevich.customqrgenerator.vector.QrCodeDrawable
 import nl.giejay.android.tv.immich.ImmichApplication
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.album.AlbumFragmentDirections
 import nl.giejay.android.tv.immich.album.SelectionType
-import nl.giejay.android.tv.immich.homescreenchannels.HomeScreenChannelManager
 import nl.giejay.android.tv.immich.screensaver.ScreenSaverType
 import nl.giejay.android.tv.immich.security.ApiKeyCipher
 import nl.giejay.mediaslider.transformations.GlideTransformations
 
 // general
-data object DISABLE_SSL_VERIFICATION : BooleanPref(false,
-    ImmichApplication.appContext!!.getString(R.string.disable_ssl),
-    ImmichApplication.appContext!!.getString(R.string.disable_ssl_text)) {
-    override fun key() = "disableSSLVerification"
-}
-
 data object API_KEY : StringPref("",
     ImmichApplication.appContext!!.getString(R.string.api_key_text),
     ImmichApplication.appContext!!.getString(R.string.api_key_text)) {
@@ -202,33 +191,6 @@ data object SCREENSAVER_TYPE : EnumByTitlePref<ScreenSaverType>(ScreenSaverType.
         return ScreenSaverType.entries.toTypedArray()
     }
 }
-
-// home screen channels
-data object ENABLE_HOME_SCREEN_CHANNELS : BooleanPref(true,
-    ImmichApplication.appContext!!.getString(R.string.enable_home_screen_channels),
-    ImmichApplication.appContext!!.getString(R.string.enable_home_screen_channels_desc))
-
-data object CHANNEL_ALBUMS : StringSetPref(mutableSetOf(),
-    ImmichApplication.appContext!!.getString(R.string.set_albums_home_screen_channels),
-    ImmichApplication.appContext!!.getString(R.string.set_albums_home_screen_channels_desc)) {
-    override fun onClick(context: Context, controller: NavController): Boolean {
-        controller.navigate(
-            AlbumFragmentDirections.actionGlobalAlbumFragment(
-                true,
-                SelectionType.SET_CHANNEL_ALBUMS.toString(),
-                "home_screen_channels"
-            )
-        )
-        return true
-    }
-}
-
-data object CHANNEL_REFRESH_NOW : ActionPref(null, ImmichApplication.appContext!!.getString(R.string.home_screen_channels_refresh_now),
-    ImmichApplication.appContext!!.getString(R.string.home_screen_channels_refresh_now_desc),
-    { _, _ ->
-        HomeScreenChannelManager.scheduleRefresh("manual")
-        true
-    })
 
 // slider/viewer
 data object SLIDER_INTERVAL : IntListPref(6,
@@ -436,47 +398,11 @@ data object ALL_ASSETS_SORTING : EnumByTitlePref<PhotosOrder>(PhotosOrder.NEWEST
 }
 
 // other
-data object DEBUG_MODE : BooleanPref(false,
-    ImmichApplication.appContext!!.getString(R.string.enable_debug_mode),
-    ImmichApplication.appContext!!.getString(R.string.enable_debug_mode_desc))
-
 data object LOAD_BACKGROUND_IMAGE : BooleanPref(true,
     ImmichApplication.appContext!!.getString(R.string.load_selected_item_as_background),
     ImmichApplication.appContext!!.getString(R.string.load_selected_item_as_background_desc))
 
 data object HIDDEN_HOME_ITEMS : StringSetPref(emptySet(), "", "")
-
-data object USER_ID : ActionPref(null, ImmichApplication.appContext!!.getString(R.string.user_id),
-    ImmichApplication.appContext!!.getString(R.string.user_id_desc),
-    { context, _ ->
-        val userId = PreferenceManager.get(USER_ID)
-        if (userId.isNotEmpty()) {
-            val layoutInflater = LayoutInflater.from(context)
-            val view = layoutInflater.inflate(R.layout.dialog_user_id_qr, null)
-            val qrImageView = view.findViewById<ImageView>(R.id.qrCode)
-            val userIdTextView = view.findViewById<TextView>(R.id.userIdText)
-
-            userIdTextView.text = userId
-            val data = QrData.Text(userId)
-            qrImageView.setImageDrawable(QrCodeDrawable(data))
-
-            AlertDialog.Builder(context)
-                .setView(view)
-                .setPositiveButton(R.string.close) { dialog, _ -> dialog.dismiss() }
-                .show()
-        }
-        true
-    }) {
-    override fun key() = "user_id"
-
-    override fun getValue(sharedPreferences: SharedPreferences): String {
-        return sharedPreferences.getString(key(), "") ?: ""
-    }
-
-    override fun save(sharedPreferences: SharedPreferences, value: String) {
-        sharedPreferences.edit().putString(key(), value).apply()
-    }
-}
 
 // seasonal/random/recents
 data object SIMILAR_ASSETS_YEARS_BACK : IntListPref(10,
@@ -630,22 +556,6 @@ data object ScreensaverPrefScreen : PrefScreen(ImmichApplication.appContext!!.ge
         )
     )
 )
-
-data object HomeScreenChannelsPrefScreen : PrefScreen(ImmichApplication.appContext!!.getString(R.string.home_screen_channels_settings), "home_screen_channels",
-    listOf(
-        PrefCategory("",
-            listOf(
-                ENABLE_HOME_SCREEN_CHANNELS,
-                CHANNEL_ALBUMS,
-                CHANNEL_REFRESH_NOW)
-        )
-    )
-)
-
-data object DebugPrefScreen : PrefScreen(ImmichApplication.appContext!!.getString(R.string.debug_settings), "debug",
-    children = listOf(PrefCategory("", listOf(DEBUG_MODE, USER_ID))), { prefManager ->
-        prefManager.findPreference<Preference>(USER_ID.key())?.summary = PreferenceManager.get(USER_ID)
-    })
 
 data class AlbumDetailsSettingsScreen(val albumId: String,
                                       val albumName: String) : PrefScreen(ImmichApplication.appContext!!.getString(R.string.settings_for, albumName),

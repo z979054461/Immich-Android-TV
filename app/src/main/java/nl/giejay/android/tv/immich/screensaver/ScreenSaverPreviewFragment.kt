@@ -8,7 +8,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSource
+import nl.giejay.android.tv.immich.api.PrivateMediaDataSource
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,8 +77,7 @@ class ScreenSaverPreviewFragment : MediaSliderFragment(), ScreenSaverAssetLoader
 
         ioScope = CoroutineScope(Job() + Dispatchers.IO)
         sliderView?.setDefaultExoFactory(
-            DefaultHttpDataSource.Factory()
-                .setDefaultRequestProperties(mapOf("x-api-key" to PreferenceManager.get(API_KEY)))
+            PrivateMediaDataSource.factory()
         )
         ScreenSaverAssetLoader(
             ioScope,

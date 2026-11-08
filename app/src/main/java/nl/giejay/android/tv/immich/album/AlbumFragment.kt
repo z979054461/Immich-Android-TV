@@ -11,10 +11,8 @@ import nl.giejay.android.tv.immich.api.model.Album
 import nl.giejay.android.tv.immich.api.util.ApiUtil
 import nl.giejay.android.tv.immich.card.Card
 import nl.giejay.android.tv.immich.home.HomeFragmentDirections
-import nl.giejay.android.tv.immich.homescreenchannels.HomeScreenChannelManager
 import nl.giejay.android.tv.immich.shared.fragment.VerticalCardGridFragment
 import nl.giejay.android.tv.immich.shared.prefs.ALBUMS_SORTING
-import nl.giejay.android.tv.immich.shared.prefs.CHANNEL_ALBUMS
 import nl.giejay.android.tv.immich.shared.prefs.EXCLUDE_ASSETS_IN_ALBUM
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_ALBUMS
@@ -25,7 +23,6 @@ import timber.log.Timber
 enum class SelectionType {
     SET_SCREENSAVER,
     EXCLUDED_ALBUMS,
-    SET_CHANNEL_ALBUMS,
 }
 
 class AlbumFragment : VerticalCardGridFragment<Album>() {
@@ -42,10 +39,6 @@ class AlbumFragment : VerticalCardGridFragment<Album>() {
 
             SelectionType.EXCLUDED_ALBUMS -> {
                 EXCLUDE_ASSETS_IN_ALBUM
-            }
-
-            SelectionType.SET_CHANNEL_ALBUMS -> {
-                CHANNEL_ALBUMS
             }
         }
         PreferenceManager.subscribe(ALBUMS_SORTING) {
@@ -83,23 +76,7 @@ class AlbumFragment : VerticalCardGridFragment<Album>() {
 
     override fun onItemSelected(card: Card, indexOf: Int) {
         val currentAlbums = PreferenceManager.get(selectionTypeKey)
-        if (card.selected) {
-            PreferenceManager.save(selectionTypeKey, currentAlbums + card.id)
-            if (selectionType == SelectionType.SET_CHANNEL_ALBUMS) {
-                // creating the channel + requesting approval needs the Activity and must happen
-                // while the app is foregrounded, so it can't wait for the debounced background sync
-                lifecycleScope.launch {
-                    HomeScreenChannelManager.createAlbumChannelAndRequestApproval(requireActivity(), card.id, card.title)
-                }
-            }
-        } else {
-            PreferenceManager.save(selectionTypeKey, currentAlbums - card.id)
-            if (selectionType == SelectionType.SET_CHANNEL_ALBUMS) {
-                lifecycleScope.launch {
-                    HomeScreenChannelManager.deleteAlbumChannel(requireContext().applicationContext, card.id)
-                }
-            }
-        }
+        PreferenceManager.save(selectionTypeKey, if (card.selected) currentAlbums + card.id else currentAlbums - card.id)
     }
 
     override fun onItemClicked(card: Card) {

@@ -12,7 +12,7 @@
 #   public *;
 #}
 
-# Keep line numbers so Crashlytics release crash reports are still readable after obfuscation.
+# Keep line numbers for local troubleshooting without any crash-reporting service.
 -keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to

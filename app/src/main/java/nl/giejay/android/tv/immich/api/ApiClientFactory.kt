@@ -1,34 +1,39 @@
 package nl.giejay.android.tv.immich.api
 
-import nl.giejay.android.tv.immich.api.interceptor.ResponseLoggingInterceptor
-import nl.giejay.android.tv.immich.api.util.UnsafeOkHttpClient
+import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import timber.log.Timber
+import java.io.IOException
 
 object ApiClientFactory {
+    /** Immutable API/video sessions cannot send a key after server change or logout. */
+    fun forSession(config: ApiClientConfig): OkHttpClient = getClient(false, config.apiKey, false, config.hostName)
+        .newBuilder().addInterceptor { chain ->
+            if (config != PreferenceManager.connectionSnapshot()) throw IOException("Connection settings changed; reopen this screen")
+            chain.proceed(chain.request())
+        }.build()
 
-    fun getClient(disableSsl: Boolean, apiKey: String, debugMode: Boolean): OkHttpClient {
-        val apiKeyInterceptor = interceptor(apiKey)
-        val builder = if (disableSsl)
-            UnsafeOkHttpClient.unsafeOkHttpClient()
-        else OkHttpClient.Builder()
-        builder.addInterceptor(apiKeyInterceptor)
-        return if(debugMode){
-            builder.addInterceptor(ResponseLoggingInterceptor()).build()
-        } else
-            builder.build()
-    }
+    /** Glide is process-global: read exactly one current connection for each image request. */
+    fun forImages(): OkHttpClient = OkHttpClient.Builder()
+        .followRedirects(false).followSslRedirects(false)
+        .addInterceptor { chain ->
+            val config = PreferenceManager.connectionSnapshot()
+            ServerPolicy.requireAllowed(config.hostName, chain.request().url)
+            if (!ServerPolicy.isValidApiKey(config.apiKey)) throw IOException("A valid Immich API key is required")
+            chain.proceed(chain.request().newBuilder().header("x-api-key", config.apiKey).build())
+        }.build()
 
-    private fun interceptor(apiKey: String): Interceptor = Interceptor { chain ->
-        try {
-            val newRequest = chain.request().newBuilder()
-                .addHeader("x-api-key", apiKey.trim())
-                .build()
-            chain.proceed(newRequest)
-        } catch (e: Exception) {
-            Timber.e(e, "Error adding API key header, invalid format")
-            chain.proceed(chain.request()) // Proceed with the original request if there's an error
-        }
-    }
+    // Legacy switches are intentionally ignored: certificates are always verified, bodies never logged.
+    @Suppress("UNUSED_PARAMETER")
+    fun getClient(disableSsl: Boolean, apiKey: String, debugMode: Boolean,
+                  server: String): OkHttpClient =
+        OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .addInterceptor(Interceptor { chain ->
+                ServerPolicy.requireAllowed(server, chain.request().url)
+                if (!ServerPolicy.isValidApiKey(apiKey)) throw IOException("A valid Immich API key is required")
+                chain.proceed(chain.request().newBuilder().header("x-api-key", apiKey).build())
+            })
+            .build()
 }

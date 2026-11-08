@@ -4,7 +4,8 @@ import android.annotation.SuppressLint
 import android.service.dreams.DreamService
 import android.view.KeyEvent
 import android.widget.Toast
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSource
+import nl.giejay.android.tv.immich.api.PrivateMediaDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,8 +35,7 @@ class ScreenSaverService : DreamService(), MediaSliderListener, ScreenSaverAsset
         val apiKey = PreferenceManager.get(API_KEY)
         mediaSliderView = MediaSliderView(this)
         mediaSliderView!!.setDefaultExoFactory(
-            DefaultHttpDataSource.Factory()
-                .setDefaultRequestProperties(mapOf("x-api-key" to apiKey))
+            PrivateMediaDataSource.factory()
         )
         setContentView(mediaSliderView)
         isInteractive = true

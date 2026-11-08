@@ -16,10 +16,6 @@
   -->
 
 <resources>
-
-    <!-- Strings for the "No Firebase" screen -->
-    <string name="no_firebase_title">Firebase n’est pas configuré</string>
-    <string name="no_firebase_body">Firebase n’a pas été configuré pour cette application. Cela signifie qu’aucune fonctionnalité propre au compte n’est activée et que la progression de lecture est stockée localement. Pour activer les fonctionnalités Firebase, consultez le fichier README.</string>
     <string name="continue_text">Continuer</string>
 
     <!-- Menus -->
@@ -94,7 +90,6 @@
 
     <!-- Auth by phone -->
     <string name="scan_qr_below">Scannez le code QR ci-dessous</string>
-    <string name="or_enter_code_on_site">Ou saisissez le code sur https://immich.giejay.nl</string>
 
     <!-- Metadata -->
     <string name="metadata">Métadonnées</string>

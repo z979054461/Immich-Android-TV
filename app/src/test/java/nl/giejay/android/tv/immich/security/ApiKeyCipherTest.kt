@@ -15,14 +15,14 @@ class ApiKeyCipherTest {
     }
 
     @Test
-    fun `unprefixed value is treated as a legacy plaintext key`() {
-        assertEquals("legacy-plaintext-key", ApiKeyCipher.decryptOrAdoptLegacy("legacy-plaintext-key"))
+    fun `unprefixed plaintext is rejected`() {
+        assertEquals("", ApiKeyCipher.decryptOrAdoptLegacy("legacy-plaintext-key"))
         assertFalse(ApiKeyCipher.isEncrypted("legacy-plaintext-key"))
     }
 
     @Test
-    fun `plaintext fallback prefix is stripped without touching the keystore`() {
-        assertEquals("fallback-key", ApiKeyCipher.decryptOrAdoptLegacy("plain:fallback-key"))
+    fun `plaintext fallback is rejected without touching the keystore`() {
+        assertEquals("", ApiKeyCipher.decryptOrAdoptLegacy("plain:fallback-key"))
         assertFalse(ApiKeyCipher.isEncrypted("plain:fallback-key"))
     }
 

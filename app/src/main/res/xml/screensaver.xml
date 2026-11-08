@@ -1,2 +1,2 @@
 <dream xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="nl.giejay.android.tv.immich/.MainActivity" />
+    android:settingsActivity="io.github.z979054461.immichtv/nl.giejay.android.tv.immich.MainActivity" />

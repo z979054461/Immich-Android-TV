@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSource
 import nl.giejay.mediaslider.config.MediaSliderConfiguration
 import nl.giejay.mediaslider.viewmodel.MediaSliderViewModel
 
@@ -39,7 +39,7 @@ open class MediaSliderFragment : Fragment() {
         view.loadMediaSliderView(config)
     }
 
-    fun setDefaultExoFactory(defaultExoFactory: DefaultHttpDataSource.Factory) {
+    fun setDefaultExoFactory(defaultExoFactory: DataSource.Factory) {
         view.setDefaultExoFactory(defaultExoFactory)
     }
 }
