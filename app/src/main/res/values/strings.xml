@@ -94,7 +94,8 @@
     <string name="metadata">Metadata</string>
 
     <!-- Screensaver  -->
-    <string name="screensaver_set">Set Immich as screensaver</string>
+    <string name="screensaver_set">About screensaver preview</string>
+    <string name="screensaver_preview_help">Photo screensavers are available only as a foreground preview after unlocking a profile. Choose Start now on this screen to preview. Background system screensavers are disabled to protect the profile PIN lock.</string>
     <string name="screensaver_set_select_albums_first">Please set your albums to show first!</string>
     <string name="screensaver_not_possible_title">Not possible to set screensaver</string>
     <string name="screensaver_not_possible">Could not start screensaver for Immich because of invalid Hostname/API key</string>

@@ -162,7 +162,7 @@ for path in (APP / "res").rglob("*.xml"):
           f"{path.relative_to(ROOT)}: author relay resource remains")
 
 # Obsolete upstream promotional/service pointers must not return to this fork.
-for path in (ROOT / "README.md", ROOT / "README.upstream.md"):
+for path in (ROOT / "README.md", ROOT / "mediaslider/README.md"):
     source = text(path)
     check(not re.search(r"buymeacoffee\.com|github\.com/giejay/Immich-Android-TV/(?:issues|pulls)|Immich-Android-TV-Authentication", source, re.I),
           f"{path.name}: obsolete upstream promotion or service link remains")
@@ -174,6 +174,30 @@ for path in (APP / "res").glob("values*/strings.xml"):
     check(not any(node.get("name", "") == "donate" or node.get("name", "").startswith("donation_")
                   for node in resources.findall("string")),
           f"{path.relative_to(ROOT)}: obsolete donation strings remain")
+
+# The profile lock permits only an unlocked foreground screensaver preview.
+screensaver_preferences = without_comments(text(KOTLIN / "shared/prefs/Preferences.kt"))
+check("R.string.screensaver_preview_help" in screensaver_preferences,
+      "Screensaver settings must explain the foreground-only preview")
+for obsolete in ("DREAM_SETTINGS", "DaydreamActivity", "screensaver_adb", "startScreenSaverIntent"):
+    check(obsolete not in screensaver_preferences,
+          f"Screensaver preferences still expose background setup: {obsolete}")
+check(not (APP / "res/layout/screensaver_adb.xml").exists(),
+      "Obsolete ADB screensaver instructions must not be bundled")
+check(not (ROOT / ".gitmodules").exists(),
+      "Vendored modules must not retain stale submodule configuration")
+check(not (ROOT / "screenshots").exists() and not (ROOT / "README.upstream.md").exists(),
+      "Obsolete upstream screenshot archive must not return")
+for path in ROOT.rglob("*.md"):
+    if ".git" not in path.parts:
+        source = path.read_text(encoding="utf-8")
+        check(not re.search(r"\]\([^)]*(?:README\.upstream\.md|screenshots/)", source),
+              f"{path.relative_to(ROOT)}: document links to removed upstream archive")
+for path in (ROOT / "mediaslider").rglob("*"):
+    if path.suffix in (".md", ".java", ".kt"):
+        source = path.read_text(encoding="utf-8")
+        check("res.cloudinary.com/" not in source and "kartiksaraf9@gmail.com" not in source,
+              f"{path.relative_to(ROOT)}: obsolete personal contact/demo service remains")
 
 if failures:
     print(f"FAIL: {len(failures)} privacy checks failed ({checks} checks)")

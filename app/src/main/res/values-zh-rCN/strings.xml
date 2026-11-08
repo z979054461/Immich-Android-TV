@@ -92,7 +92,8 @@
     <string name="metadata">元数据</string>
 
     <!-- Screensaver  -->
-    <string name="screensaver_set">将 Immich 设为屏保</string>
+    <string name="screensaver_set">关于屏保预览</string>
+    <string name="screensaver_preview_help">照片屏保仅支持解锁档案后的前台预览。选择本页的“立即启动”即可预览。为保护档案 PIN 锁，已停用系统后台照片屏保。</string>
     <string name="screensaver_set_select_albums_first">请先选择要显示的相册！</string>
     <string name="screensaver_not_possible_title">无法设置屏保</string>
     <string name="screensaver_not_possible">由于主机名/API 密钥无效，无法为 Immich 启动屏保</string>

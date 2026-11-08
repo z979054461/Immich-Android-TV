@@ -23,6 +23,7 @@ import nl.giejay.android.tv.immich.api.ApiClientConfig
 import nl.giejay.android.tv.immich.auth.ProfileFragment
 import nl.giejay.android.tv.immich.security.ProfileStore
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
+import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_SET
 import nl.giejay.mediaslider.config.MediaSliderConfiguration
 import nl.giejay.mediaslider.viewmodel.MediaSliderViewModel
 import org.json.JSONArray
@@ -35,6 +36,7 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
@@ -119,6 +121,29 @@ class MainActivityLockTest {
         assertTrue(host(activity).childFragmentManager.primaryNavigationFragment is ProfileFragment)
         assertNull(ViewModelProvider(activity)[MediaSliderViewModel::class.java].configuration)
         assertNull(BackgroundManager.getInstance(activity).drawable)
+    }
+
+    @Test fun screensaverSetupOnlyExplainsForegroundPreviewWithoutLaunchingSystemSettings() {
+        val activity = launch()
+        val navigation = host(activity).navController
+        val originalDestination = navigation.currentDestination?.id
+        assertNull(shadowOf(activity).nextStartedActivity)
+
+        // Reopening and dismissing the help must not navigate or launch a system activity.
+        repeat(2) {
+            assertTrue(SCREENSAVER_SET.onClick(activity, navigation))
+            val dialog = ShadowAlertDialog.getLatestAlertDialog()
+            assertNotNull(dialog)
+            assertTrue(dialog.isShowing)
+            assertEquals(activity.getString(R.string.screensaver_preview_help),
+                dialog.findViewById<TextView>(android.R.id.message).text.toString())
+            assertNull(shadowOf(activity).nextStartedActivity)
+            assertEquals(originalDestination, navigation.currentDestination?.id)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            settle(activity)
+            assertFalse(dialog.isShowing)
+            assertNull(shadowOf(activity).nextStartedActivity)
+        }
     }
 
     @Test fun launchIsSecureAndNeverUsesPreexistingProcessCredentials() {

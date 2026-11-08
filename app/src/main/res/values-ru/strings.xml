@@ -94,7 +94,8 @@
     <string name="metadata">Метаданные</string>
 
     <!-- Screensaver dialogs and preferences -->
-    <string name="screensaver_set">Установить Immich как заставку</string>
+    <string name="screensaver_set">О просмотре заставки</string>
+    <string name="screensaver_preview_help">Фотозаставка доступна только для просмотра на переднем плане после разблокировки профиля. Выберите «Запустить сейчас» на этом экране. Системная заставка в фоне отключена для защиты блокировки профиля PIN-кодом.</string>
     <string name="screensaver_set_select_albums_first">Сначала выберите альбомы для отображения!</string>
     <string name="screensaver_not_possible_title">Невозможно установить заставку</string>
     <string name="screensaver_not_possible">Не удалось запустить заставку для Immich из-за недействительного имени хоста/ключа API.</string>

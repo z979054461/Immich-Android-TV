@@ -1,12 +1,8 @@
 package nl.giejay.android.tv.immich.shared.prefs;
 
 import android.app.AlertDialog
-import android.view.LayoutInflater
-import android.view.View
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Build
 import android.widget.Toast
 import androidx.navigation.NavController
 import androidx.preference.ListPreference
@@ -52,20 +48,15 @@ data object HOST_NAME : StringPref("",
 }
 
 // screensaver
-private val SCREENSAVER_SETTINGS = "android.settings.DREAM_SETTINGS"
-
+// Background photo screensavers would bypass the profile PIN. Explain the supported preview instead.
 data object SCREENSAVER_SET : ActionPref(null, ImmichApplication.appContext!!.getString(R.string.screensaver_set),
-    ImmichApplication.appContext!!.getString(R.string.screensaver_set),
-    { context, navController ->
-        if (PreferenceManager.get(SCREENSAVER_TYPE) == ScreenSaverType.ALBUMS && PreferenceManager.get(SCREENSAVER_ALBUMS).isEmpty()) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.screensaver_set_select_albums_first),
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            startScreenSaverIntent(context)
-        }
+    ImmichApplication.appContext!!.getString(R.string.screensaver_preview_help),
+    { context, _ ->
+        AlertDialog.Builder(context)
+            .setTitle(R.string.screensaver_set)
+            .setMessage(R.string.screensaver_preview_help)
+            .setPositiveButton(R.string.close) { dialog, _ -> dialog.dismiss() }
+            .show()
         true
     })
 
@@ -83,39 +74,6 @@ data object SCREENSAVER_START_NOW : ActionPref("screensaver_start_now", ImmichAp
         }
         true
     })
-
-private fun startScreenSaverIntent(context: Context) {
-    // Check if the daydream intent is available - some devices (e.g. NVidia Shield) do not support it
-    var intent = Intent(SCREENSAVER_SETTINGS);
-    if (!intentAvailable(intent, context)) {
-        // Try opening the daydream settings activity directly: https://gist.github.com/reines/bc798a2cb539f51877bb279125092104
-        intent = Intent(Intent.ACTION_MAIN).setClassName(
-            "com.android.tv.settings",
-            "com.android.tv.settings.device.display.daydream.DaydreamActivity"
-        );
-        if (!intentAvailable(intent, context) || Build.MANUFACTURER == "Google") {
-            val layoutInflater =
-                context.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-            val inflate: View = layoutInflater.inflate(R.layout.screensaver_adb, null)
-            val dialog = AlertDialog.Builder(context)
-                .setTitle(R.string.screensaver_not_possible_title)
-                .create()
-            dialog.setView(inflate)
-            dialog.setButton(AlertDialog.BUTTON_NEGATIVE, ImmichApplication.appContext!!.getString(R.string.close)) { d, _ ->
-                d.dismiss()
-            }
-            return dialog.show()
-        }
-        context.startActivity(intent);
-    }
-
-}
-
-private fun intentAvailable(intent: Intent, context: Context): Boolean {
-    val manager = context.packageManager;
-    val infos = manager.queryIntentActivities(intent, 0);
-    return infos.isNotEmpty()
-}
 
 data object SCREENSAVER_INTERVAL : IntListPref(3,
     ImmichApplication.appContext!!.getString(R.string.interval),

@@ -94,7 +94,8 @@
     <string name="metadata">Métadonnées</string>
 
     <!-- Screensaver  -->
-    <string name="screensaver_set">Définir Immich comme écran de veille</string>
+    <string name="screensaver_set">À propos de l’écran de veille</string>
+    <string name="screensaver_preview_help">L’écran de veille photo est disponible uniquement en aperçu au premier plan après le déverrouillage du profil. Choisissez Démarrer maintenant sur cet écran. L’écran de veille système en arrière-plan est désactivé pour protéger le verrouillage par code PIN.</string>
     <string name="screensaver_set_select_albums_first">Veuillez d’abord définir les albums à afficher !</string>
     <string name="screensaver_not_possible_title">Impossible de définir l’écran de veille</string>
     <string name="screensaver_not_possible">Impossible de démarrer l’écran de veille pour Immich en raison d’un nom d’hôte ou d’une clé d’API invalide</string>
