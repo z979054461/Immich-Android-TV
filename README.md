@@ -1,113 +1,12 @@
-# Immich Android TV
+# Immich TV Private
 
-Immich is a self hosted backup solution for photos and videos. Current features include:
+面向自托管 Immich 的 Android TV 私用分支。
 
-- Upload and view videos and photos
-- Auto backup when the app is opened
-- Selective album(s) for backup
-- Multi-user support
-- Album and Shared albums
+- [下载 APK 和对应源码](https://github.com/z979054461/Immich-Android-TV/releases)
+- [查看私用版代码、使用说明与构建方法](https://github.com/z979054461/Immich-Android-TV/tree/feature/private-selfhosted)
 
-More info here: https://github.com/immich-app/immich
+当前私用版在 `feature/private-selfhosted` 分支开发。此 `main` 分支保留上游历史代码，不是当前安装或构建入口；请以上述开发分支与发行版说明为准。
 
-## Compatibility
+## 许可与来源
 
-This app is compatible with Immich server **v3.0.0 and newer**. Immich 3.0.0 introduced several
-breaking API changes (album asset loading via `search/metadata`, search visibility defaults,
-error response format); this app has been adapted accordingly. No additional API key permissions
-are required for v3 compared to earlier versions — the existing `asset.read`/`album.read`
-permissions listed below already cover the endpoints this app uses.
-
-This Android TV app will allow you to view those uploaded photos and videos. Current features
-include:
-
-| Features                                                                       | Status       |
-|:-------------------------------------------------------------------------------|--------------|
-| Sign in by phone (https://github.com/giejay/Immich-Android-TV-Authentication)  | Done         |
-| Sign in by entering API key                                                    | Done         |
-| Demo environment                                                               | Done         |
-| Album fetching + Lazy loading                                                  | Done         |
-| Showing the photos inside an album                                             | Done         |
-| Showing people, random, recent or seasonal photos                              | Done         |
-| Slideshow of the photos and videos with a configured interval                  | Done         |
-| Setting the app as the screensaver                                             | Done         |
-| Setting the albums to show in the screensaver                                  | Done         |
-| Configure the interval of the screensaver                                      | Done         |
-| Add generic sorting of albums and photos                                       | Done         |
-| Add sorting for specific album (select last item in row and press right again) | Done         |
-| Showing the 4K thumbnail instead of the full image to speed up loading         | Done         |
-| Showing the EXIF data and improving the slideshow view                         | Done         |
-| Configure whether to play sound with videos                                    | Done         |
-| Smarter merging of portrait photos (same people, same date, same city)         | Todo         |
-| Add transitions to slideshow                                                   | Done         |
-| Add places/tags view                                                           | Todo         |
-| Add background media playing info to screensaver                               | Todo         |
-| Casting capabilities                                                           | Out of scope |
-| Searching in and for albums                                                    | Todo         |
-| Dependency injection with Hilt/Dagger                                          | Todo         |
-
-## Required API Permissions
-
-When setting up your API key in Immich, make sure to grant the following permissions for the app to function properly:
-
-- `activity.read` - Read activity data
-- `album.download` - Download album content
-- `album.read` - Read album information
-- `archive.read` - Read archived items
-- `asset.download` - Download assets for viewing
-- `asset.read` - Read asset metadata
-- `asset.view` - View assets (photos/videos)
-- `face.read` - Read face detection data
-- `folder.read` - Read folder information
-- `library.read` - Read library information
-- `memory.read` - Read memory/moment data
-- `partner.read` - Read partner sharing data
-- `person.read` - Read person/people data
-- `session.read` - Read session information
-- `tag.asset` - Read asset tag associations
-- `tag.read` - Read tag information
-- `timeline.read` - Read timeline data
-
-## Screenshots
-
-|                                                                                    |                                                                      |                                                                                    |
-|:----------------------------------------------------------------------------------:|:--------------------------------------------------------------------:|:----------------------------------------------------------------------------------:|
-|        ![Alt text](/screenshots/homescreen-1.png?raw=true "Album overview")        |      ![Alt text](/screenshots/photos.png?raw=true "All photos")      |      ![Alt text](/screenshots/sorting-options.png?raw=true "Sorting options")      |
-|         ![Alt text](/screenshots/home-edit.png?raw=true "Edit homescreen")         | ![Alt text](/screenshots/settings-view.png?raw=true "View settings") | ![Alt text](/screenshots/settings-screensaver.png?raw=true "Screensaver settings") |
-| ![Alt text](/screenshots/screensaver-portrait.png?raw=true "Screensaver portrait") |        ![Alt text](/screenshots/people.png?raw=true "People")        |             ![Alt text](/screenshots/seasonl.png?raw=true "Seasonal")              |
-
-## Build steps
-
-1. Clone project with `git clone --recurse git@github.com:giejay/Immich-Android-TV.git`
-2. Create an account at firebase and create a google-services.json file, or
-   `cp app/google-services.example app/google-services.json`
-3. copy app/strings_other.xml.example to app/src/main/res/values/strings_other.xml and modify
-   the address and API keys for your demo server.
-4. Build apk with `./gradlew assembleRelease`
-
-## Support the project
-
-You can support the project in several ways. The first one is by creating nice descriptive bug
-reports if you find any: https://github.com/giejay/Immich-Android-TV/issues/new/choose.
-<br><br>Even better is creating a PR: https://github.com/giejay/Immich-Android-TV/pulls.
-<br><br>
-Lastly, if you feel this Android TV app is a useful addition to the already great Immich app, you
-might consider buying me a coffee or a beer:
-
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/giejay)
-
-## FAQ
-
-#### I'n not able to set the app as a screensaver
-
-1. Enable development mode on the device (click the build number or "Android TV OS Build" 7 times in
-   the System->About settings).
-2. Go to System -> Developer Options and enable USB Debugging.
-3. If you don't have ADB installed on your PC, follow these
-   instructions: https://www.xda-developers.com/install-adb-windows-macos-linux/
-4. After downloading/installing ADB on the PC, connect to the device using it's IP: adb connect
-   192.168.xx.xx.
-5. If you have an Amazon Fire TV, first execute this command and reboot after: 'adb shell settings put secure amazon_ambient_enabled 0'
-6. Execute the following command: 'adb shell settings put secure
-   screensaver_components nl.giejay.android.tv.immich/.screensaver.ScreenSaverService'
-7. Done!
+本项目基于 [giejay/Immich-Android-TV](https://github.com/giejay/Immich-Android-TV)，保留 [GPLv3 许可](LICENSE)、原始版权与必要署名；内置 mediaslider 保留其 Apache-2.0 许可。此为非官方个人分支，不是 Immich 官方电视客户端。
