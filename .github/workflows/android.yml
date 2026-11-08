@@ -27,10 +27,17 @@ jobs:
       - name: Inspect release APK and merged manifest
         shell: bash
         run: |
+          set -euo pipefail
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
           test -n "$APK" && test -n "$MANIFEST"
-          python3 scripts/check_private_apk.py "$APK" --merged-manifest "$MANIFEST"
+          APKANALYZER=$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer -executable | sort -V | tail -1)
+          test -n "$APKANALYZER" && test -x "$APKANALYZER"
+          APK_MANIFEST=$(mktemp "$RUNNER_TEMP/immich-apk-manifest.XXXXXX.xml")
+          trap 'rm -f "$APK_MANIFEST"' EXIT
+          "$APKANALYZER" manifest print "$APK" > "$APK_MANIFEST"
+          test -s "$APK_MANIFEST"
+          python3 scripts/check_private_apk.py "$APK" --apk-manifest "$APK_MANIFEST" --merged-manifest "$MANIFEST"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,7 +82,12 @@ jobs:
           ./gradlew :app:assembleRelease
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           MANIFEST=$(find app/build/intermediates/merged_manifests/release -name AndroidManifest.xml -print -quit)
-          python3 scripts/check_private_apk.py "$APK" --merged-manifest "$MANIFEST"
+          test -n "$APK" && test -n "$MANIFEST"
+          APKANALYZER=$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer -executable | sort -V | tail -1)
+          test -n "$APKANALYZER" && test -x "$APKANALYZER"
+          "$APKANALYZER" manifest print "$APK" > "$SIGN_DIR/apk-manifest.xml"
+          test -s "$SIGN_DIR/apk-manifest.xml"
+          python3 scripts/check_private_apk.py "$APK" --apk-manifest "$SIGN_DIR/apk-manifest.xml" --merged-manifest "$MANIFEST"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --verbose --print-certs "$APK" > "$SIGN_DIR/verification.txt"
           ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$SIGN_DIR/verification.txt" | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')

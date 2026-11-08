@@ -38,8 +38,8 @@
     </instrumentation>
 
     <application
-        android:allowBackup="true"
-        android:fullBackupContent="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:icon="@drawable/icon"
         android:banner="@mipmap/icon_banner_v2"
         android:label="@string/app_name"
