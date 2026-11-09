@@ -120,7 +120,7 @@ class ProfileFragment : Fragment() {
             .setMessage(R.string.profiles_remove_warning)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.profiles_remove) { _, _ ->
-                runCatching { PreferenceManager.profiles.remove(profile.id) }
+                runCatching { PreferenceManager.removeProfile(profile.id) }
                     .onSuccess { (activity as? MainActivity)?.lockAndShowProfiles() }
             }.show()
         dialog?.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
@@ -227,7 +227,7 @@ class ProfileFragment : Fragment() {
             newPin = null
             viewLifecycleOwner.lifecycleScope.launch {
                 val config = withContext(Dispatchers.IO) {
-                    runCatching { PreferenceManager.profiles.changePin(profile.id, oldPin, entered) }.getOrNull()
+                    runCatching { PreferenceManager.changeProfilePin(profile.id, oldPin, entered) }.getOrNull()
                 }
                 busy = false
                 if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || dialog !== changeDialog || !changeDialog.isShowing) return@launch

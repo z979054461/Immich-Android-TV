@@ -12,6 +12,9 @@ import java.util.UUID
 /** Non-secret input-format hint; missing/unknown values always require explicit confirmation. */
 data class ProfileSummary(val id: String, val name: String, val pinLength: Int? = null)
 
+/** Non-secret policy revision prevents a suspended session surviving credential/policy changes. */
+data class ProfileSessionPolicy(val graceMinutes: Int, val revision: String)
+
 /** Only encrypted credentials and salted PIN hashes are durable. No automatic unlock on startup. */
 class ProfileStore internal constructor(
     private val prefs: SharedPreferences,
@@ -37,6 +40,24 @@ class ProfileStore internal constructor(
             ProfileSummary(row.getString("id"), row.getString("name"), row.optInt("pinLength", 0).takeIf { it == PinHasher.PIN_LENGTH })
         } }
     }
+    @Synchronized fun sessionPolicy(id: String): ProfileSessionPolicy? {
+        val rows = read()
+        val row = (0 until rows.length()).map { rows.getJSONObject(it) }.firstOrNull { it.getString("id") == id }
+            ?: return null
+        val minutes = if (row.has("pinGraceMinutes")) row.optInt("pinGraceMinutes", 0) else 5
+        return ProfileSessionPolicy(if (minutes in listOf(0, 1, 5, 15)) minutes else 0,
+            row.optString("sessionRevision", "legacy"))
+    }
+
+    @Synchronized fun setGraceMinutes(id: String, minutes: Int) {
+        require(minutes in listOf(0, 1, 5, 15))
+        val rows = read()
+        val row = (0 until rows.length()).map { rows.getJSONObject(it) }.firstOrNull { it.getString("id") == id }
+            ?: error("Profile unavailable")
+        row.put("pinGraceMinutes", minutes).put("sessionRevision", UUID.randomUUID().toString())
+        write(rows)
+    }
+
     @Synchronized fun add(name: String, host: String, key: String, pin: String): String {
         require(name.trim().length in 1..40 && PinHasher.valid(pin) && ServerPolicy.isValidApiKey(key))
         val server = ServerPolicy.normalizeServer(host)
@@ -48,7 +69,8 @@ class ProfileStore internal constructor(
         val id = UUID.randomUUID().toString()
         rows.put(JSONObject().put("id", id).put("name", name.trim()).put("host", server)
             .put("key", encrypted).put("salt", encode(salt)).put("hash", encode(hash))
-            .put("failures", 0).put("nextAttempt", 0L).put("pinLength", PinHasher.PIN_LENGTH))
+            .put("failures", 0).put("nextAttempt", 0L).put("pinLength", PinHasher.PIN_LENGTH)
+            .put("sessionRevision", UUID.randomUUID().toString()).put("pinGraceMinutes", 5))
         write(rows)
         return id
     }
@@ -103,7 +125,7 @@ class ProfileStore internal constructor(
             ?: return null
         val salt = PinHasher.salt()
         row.put("salt", encode(salt)).put("hash", encode(PinHasher.hash(newPin, salt)))
-            .put("pinLength", PinHasher.PIN_LENGTH)
+            .put("pinLength", PinHasher.PIN_LENGTH).put("sessionRevision", UUID.randomUUID().toString())
         write(rows)
         return config
     }

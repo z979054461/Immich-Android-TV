@@ -1,6 +1,6 @@
 <resources>
     <string name="profiles_title">谁在观看？</string>
-    <string name="profiles_intro">选择个人资料。每次重新打开应用时，均需输入本地 PIN 码。</string>
+    <string name="profiles_intro">选择个人资料。本地 PIN 保护照片；每个账户均可设置离开应用后的免 PIN 时间。</string>
     <string name="profiles_add">＋ 添加 Immich 账户</string>
     <string name="profiles_name">个人资料名称（1–40 个字符）</string>
     <string name="profiles_new_pin">设置 4 位数字 PIN</string>
@@ -27,4 +27,12 @@
     <string name="profiles_pin_migrate_choose">第 1/2 步：原 PIN 已验证。请设置新的 4 位 PIN。取消会保留原 PIN，资料仍锁定。</string>
     <string name="profiles_pin_migrate_confirm">第 2/2 步：再次输入相同的 4 位 PIN，完成后保存并解锁。</string>
     <string name="profiles_pin_mismatch">两次 PIN 不一致。请重新设置 4 位 PIN。</string>
+    <string name="profiles_grace_title">离开应用后免 PIN 时间</string>
+    <string name="profiles_grace_description">仅影响当前账户：离开应用后，在所选时间内返回无需再输入 PIN。后台仍会停止媒体和网络访问。手动锁定、切换账户或应用/电视重启后始终需要 PIN。宽限期间，其他使用这台电视的人也能直接返回此账户。</string>
+    <string name="profiles_grace_immediate">立即锁定</string>
+    <string name="profiles_grace_one">1 分钟</string>
+    <string name="profiles_grace_five">5 分钟（默认）</string>
+    <string name="profiles_grace_fifteen">15 分钟</string>
+    <string name="profiles_grace_save">保存</string>
+    <string name="profiles_grace_save_failed">保存失败。请解锁此账户后重试。</string>
 </resources>

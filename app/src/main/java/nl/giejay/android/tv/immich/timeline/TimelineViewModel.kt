@@ -267,12 +267,14 @@ class TimelineViewModel(
     suspend fun loadMemories() {
         // Optional memories must never hide the independent timeline loading indicator.
         val result = safeFetch { fetchMemories() }
-        _memoriesReady.value = true
         result.fold(
             { _memories.value = emptyList() },
             { _memories.value = it }
         )
         recomputeLayout()
+        // Consumers may use this event to abandon a missing memory restore target.
+        // Publish it only after the response and its layout have both been committed.
+        _memoriesReady.value = true
     }
 
     private suspend fun <T> safeFetch(block: suspend () -> Either<String, T>): Either<String, T> =

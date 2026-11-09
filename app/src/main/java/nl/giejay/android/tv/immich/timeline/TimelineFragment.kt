@@ -29,7 +29,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import arrow.core.Either
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
@@ -91,7 +95,10 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
     private var focusVideoPreview: TimelineFocusVideoPreview? = null
 
     private var selectionRestored = false
-    private var dataReadyNotified = false
+    private val hostReadiness = TimelineHostReadiness()
+    private var restoreTargetJob: Job? = null
+    private var restoreTargetAssetId: String? = null
+    private var restoreFailedAssetId: String? = null
     private var loadingNextBucket = false
     private var loadingNewerBucket = false
     private var contentWidthPx = 0
@@ -165,6 +172,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         statusMessage = view.findViewById(R.id.timeline_status_message)
         retryButton = view.findViewById<Button>(R.id.timeline_retry).apply {
             setOnClickListener {
+                restoreFailedAssetId = null
+                selectionRestored = false
                 viewLifecycleOwner.lifecycleScope.launch {
                     if (viewModel.initialSearchPending.value && viewModel.error.value == null) {
                         viewModel.continueInitialLoad()
@@ -314,7 +323,6 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             }
         }
 
-        mainFragmentAdapter.fragmentHost?.notifyViewCreated(mainFragmentAdapter)
         // Our loading/error UI is ready now. Leanback must not hide this page until the API finishes.
         notifyTimelineViewReady()
         // Host is attached by now; keep Browse from flashing/animating the "Timeline" title.
@@ -392,6 +400,16 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                         scrubberView?.setBuckets(buckets)
                     }
                 }
+                launch {
+                    viewModel.memoriesReady.collect { ready ->
+                        // Empty/failed memories may leave layout equal, so layout alone cannot
+                        // wake a restore waiting for an old memory card to disappear.
+                        if (ready && viewModel.lastSelectedMemoryId != null) {
+                            selectionRestored = false
+                            restoreSelectionIfNeeded()
+                        }
+                    }
+                }
             }
         }
 
@@ -430,7 +448,12 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         contentWidthListener = null
         contentWidthPx = 0
         lastStatus = null
-        dataReadyNotified = false
+        hostReadiness.reset()
+        restoreTargetJob?.cancel()
+        restoreTargetJob = null
+        restoreTargetAssetId = null
+        restoreFailedAssetId = null
+        selectionRestored = false
         super.onDestroyView()
         recyclerView = null
         progressBar = null
@@ -454,11 +477,12 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
     )
 
     private fun notifyTimelineViewReady() {
-        if (dataReadyNotified || view == null) return
-        mainFragmentAdapter.fragmentHost?.let { host ->
-            host.notifyDataReady(mainFragmentAdapter)
-            dataReadyNotified = true
-        }
+        if (view == null) return
+        val host = mainFragmentAdapter.fragmentHost ?: return
+        hostReadiness.notify(host,
+            viewCreated = { host.notifyViewCreated(mainFragmentAdapter) },
+            dataReady = { host.notifyDataReady(mainFragmentAdapter) }
+        )
     }
 
     private fun renderStatus(state: TimelineStatus) {
@@ -469,6 +493,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         statusView?.visibility = if (showStatus) View.VISIBLE else View.GONE
         retryButton?.isEnabled = !loading
         retryButton?.setText(if (state.moreMonthsPending && state.error == null) R.string.timeline_continue else R.string.timeline_retry)
+        if (!loading && state.complete && !selectionRestored) restoreSelectionIfNeeded()
         if (!showStatus) return
         // Keep already loaded photos usable when a later month fails.
         (statusView?.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
@@ -484,10 +509,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             state.error.contains("400") -> R.string.timeline_version_error
             else -> R.string.timeline_load_error
         })
-        if (!dataReadyNotified) {
-            mainFragmentAdapter.fragmentHost?.notifyDataReady(mainFragmentAdapter)
-            dataReadyNotified = true
-        }
+        notifyTimelineViewReady()
         if (!state.hasAssets && !isBrowseShowingHeaders()) retryButton?.requestFocus()
     }
 
@@ -728,12 +750,9 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         }
 
         adapter.submitList(itemsWithMemories) {
-            if (!isAdded) return@submitList
+            if (!isAdded || recyclerView !== rv || mosaicAdapter !== adapter) return@submitList
             if (days.isNotEmpty()) {
-                if (!dataReadyNotified) {
-                    mainFragmentAdapter.fragmentHost?.notifyDataReady(mainFragmentAdapter)
-                    dataReadyNotified = true
-                }
+                notifyTimelineViewReady()
                 hideBrowseTitle()
             }
 
@@ -792,8 +811,6 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             if (!attemptPendingJumpScroll()) {
                 reanchorStickyJumpIfNeeded()
             }
-            loadingNextBucket = false
-            loadingNewerBucket = false
         }
     }
 
@@ -858,7 +875,26 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
 
         when (val target = TimelineLeaveOff.resolveRestore(viewModel.leaveOffSnapshot())) {
             is TimelineLeaveOff.Target.Memory -> {
-                if (!adapter.hasMemoriesRow()) return
+                when (TimelineRestorePolicy.memoryAction(
+                    hasAdapterRow = adapter.hasMemoriesRow(),
+                    hasMemories = viewModel.memories.value.isNotEmpty(),
+                    memoriesReady = viewModel.memoriesReady.value
+                )) {
+                    TimelineRestorePolicy.MemoryAction.Wait -> {
+                        // Unlock navigation, but keep restore pending for the adapter commit.
+                        selectionRestored = false
+                        finishResumeFocusLock()
+                        return
+                    }
+                    TimelineRestorePolicy.MemoryAction.Forget -> {
+                        viewModel.lastSelectedMemoryId = null
+                        selectionRestored = false
+                        finishResumeFocusLock()
+                        restoreSelectionIfNeeded()
+                        return
+                    }
+                    TimelineRestorePolicy.MemoryAction.Focus -> Unit
+                }
                 selectionRestored = true
                 val rv = recyclerView ?: return
                 setFocusScrollSuppressed(true)
@@ -866,24 +902,24 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                 scrubberView?.isFocusable = false
                 rv.scrollToPosition(0)
                 fun tryFocus() {
+                    if (!isAdded || recyclerView !== rv) return
                     if (!adapter.focusMemory(rv, target.id)) {
-                        rv.post { adapter.focusMemory(rv, target.id) }
+                        rv.post {
+                            if (isAdded && recyclerView === rv) adapter.focusMemory(rv, target.id)
+                        }
                     }
                 }
                 rv.post { tryFocus() }
-                rv.post { finishResumeFocusLock() }
+                rv.post {
+                    if (isAdded && recyclerView === rv) finishResumeFocusLock()
+                }
                 return
             }
             is TimelineLeaveOff.Target.Mosaic -> {
                 val assetId = target.assetId
                 val position = adapter.positionOfAsset(assetId)
                 if (position < 0) {
-                    val dayKey = viewModel.lastSelectedDayKey
-                    if (dayKey != null) {
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            viewModel.loadBucket(TimelineViewModel.monthBucketKey(LocalDate.parse(dayKey)))
-                        }
-                    }
+                    recoverMissingAssetTarget(assetId)
                     return
                 }
 
@@ -918,7 +954,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                 // Hold scroll-suppress through focus scale so Leanback cannot inch the page.
                 // Keep allowScrollAdjust=false until unlock so bindDays cannot yank focus away.
                 rv.postDelayed({
-                    if (!isAdded) return@postDelayed
+                    if (!isAdded || recyclerView !== rv) return@postDelayed
                     viewModel.leaveOffAllowScrollAdjust = true
                     finishResumeFocusLock()
                 }, TimelineLeaveOff.MOSAIC_FOCUS_LOCK_RELEASE_MS)
@@ -927,19 +963,103 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             TimelineLeaveOff.Target.None -> Unit
         }
 
-        // First entry: wait for days + memories, then land on first memory (or mosaic).
-        if (viewModel.days.value.isEmpty()) return
-        if (!viewModel.memoriesReady.value) return
+        // Optional memories never block photos that are already ready for D-pad navigation.
+        if (!TimelineRestorePolicy.hasFocusableContent(adapter.hasMemoriesRow(), adapter.firstAssetId() != null)) {
+            finishResumeFocusLock()
+            if (statusView?.visibility == View.VISIBLE) retryButton?.requestFocus()
+            return
+        }
 
         selectionRestored = true
         finishResumeFocusLock()
+        val ownerView = recyclerView
         Handler(Looper.getMainLooper()).postDelayed({
-            if (!isAdded || isBrowseShowingHeaders()) {
+            if (!isAdded || recyclerView !== ownerView) return@postDelayed
+            if (isBrowseShowingHeaders()) {
                 selectionRestored = false
                 return@postDelayed
             }
             focusInitialEntry()
         }, 100)
+    }
+
+    private fun recoverMissingAssetTarget(assetId: String) {
+        finishResumeFocusLock()
+        // The adapter can lag the ViewModel by one diff/layout. Do not re-fetch known data.
+        if (viewModel.bucketKeyForAsset(assetId) != null) return
+        if (restoreFailedAssetId == assetId) {
+            if (statusView?.visibility == View.VISIBLE) retryButton?.requestFocus()
+            return
+        }
+        if (restoreTargetJob?.isActive == true && restoreTargetAssetId == assetId) return
+        val month = viewModel.lastSelectedDayKey?.let { day ->
+            runCatching { TimelineViewModel.monthBucketKey(LocalDate.parse(day)) }.getOrNull()
+        }
+        val bucketKey = month?.let(viewModel::resolveBucketKey)
+        if (bucketKey == null) {
+            // Only a completed, successful index can establish that this month disappeared.
+            if (!viewModel.initialLoadComplete.value || viewModel.isLoading.value) return
+            if (viewModel.error.value != null) {
+                preserveFailedRestoreTarget(assetId)
+            } else {
+                forgetMissingAssetTarget(assetId)
+                restoreSelectionIfNeeded()
+            }
+            return
+        }
+
+        val ownerView = recyclerView ?: return
+        restoreTargetJob?.cancel()
+        restoreTargetAssetId = assetId
+        val job = viewLifecycleOwner.lifecycleScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                val result = withContext(Dispatchers.IO) { viewModel.loadBucket(bucketKey) }
+                if (!isAdded || recyclerView !== ownerView) return@launch
+                val currentTarget = TimelineLeaveOff.resolveRestore(viewModel.leaveOffSnapshot())
+                if (currentTarget !is TimelineLeaveOff.Target.Mosaic || currentTarget.assetId != assetId) return@launch
+                val succeeded = result is Either.Right
+                val found = result.fold({ false }, { assets -> assets.any { it.id == assetId } })
+                if (TimelineRestorePolicy.shouldForgetMissingAsset(succeeded, found)) {
+                    forgetMissingAssetTarget(assetId)
+                    restoreSelectionIfNeeded()
+                } else if (!succeeded) {
+                    preserveFailedRestoreTarget(assetId)
+                } else {
+                    restoreSelectionIfNeeded()
+                }
+            } catch (cancelled: CancellationException) {
+                if (recyclerView === ownerView) finishResumeFocusLock()
+                throw cancelled
+            } finally {
+                if (restoreTargetJob === coroutineContext[Job]) {
+                    restoreTargetJob = null
+                    restoreTargetAssetId = null
+                }
+            }
+        }
+        restoreTargetJob = job
+        job.start()
+    }
+
+    private fun forgetMissingAssetTarget(assetId: String) {
+        if (viewModel.pendingResumeAssetId == assetId) viewModel.pendingResumeAssetId = null
+        if (viewModel.lastSelectedAssetId == assetId) {
+            viewModel.lastSelectedAssetId = null
+            viewModel.lastSelectedDayKey = null
+        }
+        restoreFailedAssetId = null
+        selectionRestored = false
+        finishResumeFocusLock()
+    }
+
+    private fun preserveFailedRestoreTarget(assetId: String) {
+        restoreFailedAssetId = assetId
+        // Stop forcing a failed restore, but keep its target until retry or deliberate navigation.
+        if (viewModel.pendingResumeAssetId == assetId) viewModel.pendingResumeAssetId = null
+        viewModel.lastSelectedAssetId = assetId
+        selectionRestored = true
+        finishResumeFocusLock()
+        if (statusView?.visibility == View.VISIBLE) retryButton?.requestFocus()
     }
 
     private fun isBrowseShowingHeaders(): Boolean =
@@ -960,7 +1080,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             if (adapter.focusFirstMemory(rv)) return
             rv.scrollToPosition(0)
             rv.post {
-                if (!isAdded) return@post
+                if (!isAdded || recyclerView !== rv) return@post
                 if (adapter.focusFirstMemory(rv)) return@post
                 adapter.firstAssetId()?.let {
                     focusNavigator?.focusAsset(it, adjustScroll = true)
@@ -989,10 +1109,10 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         val next = viewModel.nextOlderUnloadedBucket(dayKey) ?: return false
         loadingNextBucket = true
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.loadBucket(next.timeBucket)
-            withContext(Dispatchers.Main) {
-                loadingNextBucket = false
-            }
+            withTimelineViewLoad(rv, { recyclerView },
+                load = { viewModel.loadBucket(next.timeBucket) },
+                finished = { loadingNextBucket = false }
+            )
         }
         return true
     }
@@ -1014,10 +1134,10 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         val next = viewModel.nextOlderUnloadedBucket() ?: return
         loadingNextBucket = true
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.loadBucket(next.timeBucket)
-            withContext(Dispatchers.Main) {
-                loadingNextBucket = false
-            }
+            withTimelineViewLoad(rv, { recyclerView },
+                load = { viewModel.loadBucket(next.timeBucket) },
+                finished = { loadingNextBucket = false }
+            )
         }
     }
 
@@ -1035,10 +1155,10 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         val next = viewModel.nextNewerUnloadedBucket(dayKey) ?: return false
         loadingNewerBucket = true
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.loadBucket(next.timeBucket)
-            withContext(Dispatchers.Main) {
-                loadingNewerBucket = false
-            }
+            withTimelineViewLoad(rv, { recyclerView },
+                load = { viewModel.loadBucket(next.timeBucket) },
+                finished = { loadingNewerBucket = false }
+            )
         }
         return true
     }

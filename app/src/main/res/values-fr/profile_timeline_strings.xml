@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
   <string name="profiles_title">Qui regarde ?</string>
-  <string name="profiles_intro">Choisissez votre profil. Un code PIN local protège les photos à chaque réouverture.</string>
+  <string name="profiles_intro">Choisissez votre profil. Un code PIN local protège les photos ; chaque compte peut définir son délai de retour.</string>
   <string name="profiles_add">+ Ajouter un compte Immich</string>
   <string name="profiles_name">Nom du profil (1 à 40 caractères)</string>
   <string name="profiles_new_pin">Créer un code PIN de 4 chiffres</string>
@@ -37,4 +37,12 @@
     <string name="profiles_pin_migrate_choose">Étape 1 sur 2 : ancien code vérifié. Choisissez 4 nouveaux chiffres. Annuler garde l’ancien code et le profil verrouillé.</string>
     <string name="profiles_pin_migrate_confirm">Étape 2 sur 2 : saisissez les mêmes 4 chiffres pour enregistrer et déverrouiller.</string>
     <string name="profiles_pin_mismatch">Les codes ne correspondent pas. Choisissez à nouveau un code de 4 chiffres.</string>
+    <string name="profiles_grace_title">Délai avant nouvelle saisie du PIN</string>
+    <string name="profiles_grace_description">Pour ce compte, le retour dans le délai choisi ne demande pas de PIN. Les médias et le réseau restent bloqués en arrière-plan. Le verrouillage manuel, le changement de compte ou le redémarrage exigent un PIN. Toute personne utilisant ce téléviseur peut revenir pendant ce délai.</string>
+    <string name="profiles_grace_immediate">Immédiatement</string>
+    <string name="profiles_grace_one">1 minute</string>
+    <string name="profiles_grace_five">5 minutes (par défaut)</string>
+    <string name="profiles_grace_fifteen">15 minutes</string>
+    <string name="profiles_grace_save">Enregistrer</string>
+    <string name="profiles_grace_save_failed">Échec. Déverrouillez ce compte et réessayez.</string>
 </resources>

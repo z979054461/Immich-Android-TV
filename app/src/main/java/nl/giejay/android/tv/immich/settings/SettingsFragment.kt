@@ -1,6 +1,7 @@
 package nl.giejay.android.tv.immich.settings
 
 import android.app.Activity
+import android.app.AlertDialog
 import nl.giejay.android.tv.immich.MainActivity
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -14,10 +15,12 @@ import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.home.HomeFragmentDirections
 import nl.giejay.android.tv.immich.shared.prefs.ScreensaverPrefScreen
 import nl.giejay.android.tv.immich.shared.prefs.ViewPrefScreen
+import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 
 
 class SettingsFragment : RowsSupportFragment() {
     private val mRowsAdapter: ArrayObjectAdapter
+    private var pinGraceDialog: AlertDialog? = null
 
     init {
         val selector = ListRowPresenter()
@@ -51,6 +54,18 @@ class SettingsFragment : RowsSupportFragment() {
                             (activity as? MainActivity)?.lockAndShowProfiles()
                         },
                         SettingsCard(
+                            getString(R.string.profiles_grace_title),
+                            getString(R.string.profiles_grace_description),
+                            "pin_grace",
+                            "ic_settings_settings",
+                            "ic_settings_settings"
+                        ) {
+                            PreferenceManager.activeProfileId?.let { id ->
+                                pinGraceDialog?.dismiss()
+                                pinGraceDialog = PinGraceSettingsDialog.show(requireContext(), id)
+                            }
+                        },
+                        SettingsCard(
                             ImmichApplication.appContext!!.getString(R.string.view_settings),
                             null,
                             "view_settings",
@@ -79,6 +94,12 @@ class SettingsFragment : RowsSupportFragment() {
                 mainFragmentAdapter
             )
         }
+    }
+
+    override fun onStop() {
+        pinGraceDialog?.dismiss()
+        pinGraceDialog = null
+        super.onStop()
     }
 
     private fun createCardRow(cards: List<SettingsCard>): ListRow {

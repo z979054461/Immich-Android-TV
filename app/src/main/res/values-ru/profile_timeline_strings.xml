@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
   <string name="profiles_title">Кто смотрит?</string>
-  <string name="profiles_intro">Выберите профиль. Локальный PIN-код защищает фотографии при каждом открытии приложения.</string>
+  <string name="profiles_intro">Выберите профиль. Локальный PIN-код защищает фотографии; для каждого аккаунта можно задать время возврата без PIN.</string>
   <string name="profiles_add">+ Добавить аккаунт Immich</string>
   <string name="profiles_name">Название профиля (1–40 символов)</string>
   <string name="profiles_new_pin">Создайте PIN-код из 4 цифр</string>
@@ -37,4 +37,12 @@
     <string name="profiles_pin_migrate_choose">Шаг 1 из 2: прежний код проверен. Выберите 4 новые цифры. Отмена сохранит старый код и оставит профиль заблокированным.</string>
     <string name="profiles_pin_migrate_confirm">Шаг 2 из 2: повторите те же 4 цифры для сохранения и разблокировки.</string>
     <string name="profiles_pin_mismatch">Коды не совпадают. Задайте новый код из 4 цифр ещё раз.</string>
+    <string name="profiles_grace_title">Время до повторного запроса PIN</string>
+    <string name="profiles_grace_description">Для этого аккаунта при возврате в выбранный срок PIN не потребуется. В фоне медиа и сеть отключаются. После ручной блокировки, смены аккаунта или перезапуска нужен PIN. В течение этого срока любой пользователь телевизора может вернуться в аккаунт.</string>
+    <string name="profiles_grace_immediate">Сразу</string>
+    <string name="profiles_grace_one">1 минута</string>
+    <string name="profiles_grace_five">5 минут (по умолчанию)</string>
+    <string name="profiles_grace_fifteen">15 минут</string>
+    <string name="profiles_grace_save">Сохранить</string>
+    <string name="profiles_grace_save_failed">Не удалось сохранить. Разблокируйте этот аккаунт и повторите попытку.</string>
 </resources>

@@ -1,6 +1,6 @@
 <resources>
     <string name="profiles_title">Who is watching?</string>
-    <string name="profiles_intro">Choose your profile. A local PIN protects photos each time you reopen the app.</string>
+    <string name="profiles_intro">Choose your profile. A local PIN protects your photos; each account can set its own return grace period.</string>
     <string name="profiles_add">+ Add Immich account</string>
     <string name="profiles_name">Profile name (1–40 characters)</string>
     <string name="profiles_new_pin">Create a 4-digit PIN</string>
@@ -27,4 +27,12 @@
     <string name="profiles_pin_migrate_choose">Step 1 of 2: Previous PIN verified. Choose 4 new digits. Cancel keeps the old PIN and this profile locked.</string>
     <string name="profiles_pin_migrate_confirm">Step 2 of 2: Enter the same 4 digits again to save and unlock.</string>
     <string name="profiles_pin_mismatch">The PINs did not match. Choose a new 4-digit PIN and try again.</string>
+    <string name="profiles_grace_title">PIN grace period</string>
+    <string name="profiles_grace_description">For this account, skip PIN entry when returning within the selected time after leaving the app. Media and network access stop in the background. Manual lock, account switching, or an app/device restart always requires a PIN. Anyone using this TV can return during the grace period.</string>
+    <string name="profiles_grace_immediate">Immediately</string>
+    <string name="profiles_grace_one">1 minute</string>
+    <string name="profiles_grace_five">5 minutes (default)</string>
+    <string name="profiles_grace_fifteen">15 minutes</string>
+    <string name="profiles_grace_save">Save</string>
+    <string name="profiles_grace_save_failed">Could not save. Unlock this account and try again.</string>
 </resources>

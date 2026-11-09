@@ -114,8 +114,66 @@ for path in KOTLIN.rglob("*.kt"):
 activity = without_comments(text(KOTLIN / "MainActivity.kt"))
 check("FLAG_SECURE" in activity and "super.onCreate(null)" in activity,
       "Activity must not restore authenticated pixels/back stack or expose recent-task screenshots")
-check("override fun onStop()" in activity and "PreferenceManager.lock()" in activity,
-      "Activity must lock on backgrounding")
+def kotlin_function_body(source, name):
+    match = re.search(r"\bfun\s+" + re.escape(name) + r"\s*\(", source)
+    if not match:
+        return ""
+    start = source.find("{", match.end())
+    if start < 0:
+        return ""
+    depth = 0
+    for index in range(start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+    return ""
+
+stop = kotlin_function_body(activity, "onStop")
+check("PreferenceManager.suspendForBackground()" in stop and "visibility = View.INVISIBLE" in stop and
+      stop.find("visibility = View.INVISIBLE") < stop.find("PreferenceManager.suspendForBackground()"),
+      "Backgrounding must hide private pixels before suspending transport")
+check("configuration = null" in stop and "BackgroundManager.getInstance(this).drawable = null" in stop,
+      "Backgrounding must clear media playback configuration and photo backgrounds")
+invalidator = kotlin_function_body(prefs, "invalidateConnection")
+check('activeConnection = ApiClientConfig("", "", false, false)' in invalidator and
+      "activeProfileId = null" in invalidator and "ApiClientFactory.cancelAll()" in invalidator and
+      "AssetDetailCache.clearSession()" in invalidator,
+      "Suspension must revoke the active credential snapshot, requests and account metadata")
+suspension = kotlin_function_body(prefs, "suspendForBackground")
+check("profiles.sessionPolicy(id)" in suspension and "policy == current" in suspension and
+      "finally" in suspension and "invalidateConnection()" in suspension and
+      suspension.find("finally") < suspension.find("invalidateConnection()"),
+      "Background grace requires unchanged account policy and unconditional transport revocation")
+hard_lock = kotlin_function_body(prefs, "lock")
+check("pinGrace.clear()" in hard_lock and "invalidateConnection()" in hard_lock,
+      "Hard lock must destroy grace and revoke transport")
+resume = kotlin_function_body(prefs, "resumeFromBackground")
+check("profiles.sessionPolicy(id)" in resume and "current != pendingProfilePolicy" in resume and
+      "pinGrace.consume(id)" in resume and "activeConnection = suspended.copy()" in resume,
+      "Grace resume must revalidate the same profile policy, consume the grant and publish a fresh identity")
+check("SystemClock::elapsedRealtime" in prefs and "graceHandler.postDelayed" in prefs and
+      "graceHandler.removeCallbacks" in prefs,
+      "Grace expiry must use monotonic time and a cancellable cleanup timer")
+check("Intent.ACTION_SCREEN_ON" in activity and "PreferenceManager.expireBackgroundGrace()" in activity and
+      "ContextCompat.RECEIVER_NOT_EXPORTED" in activity and "unregisterReceiver(screenOnReceiver)" in activity,
+      "Wake cleanup must discard elapsed grace without exporting a receiver or retaining a dead Activity")
+grace = without_comments(text(KOTLIN / "security/SessionGraceController.kt"))
+check("now < grant.lastObservedAt" in grace and "now - grant.startedAt >= grant.durationMillis" in grace and
+      "pending = null" in grace and "pending?.token !== token" in grace,
+      "Grace must reject rollback/exact expiry, drop credentials and reject stale expiry callbacks")
+check(not any(token in grace for token in ("SharedPreferences", "SavedStateHandle", "java.io", "android.os.Bundle")),
+      "Grace grants must stay memory-only, never in preferences, saved state or files")
+launcher_policy = without_comments(text(KOTLIN / "security/LauncherEntryPolicy.kt"))
+check("LauncherEntryPolicy.permitsGrace(intent)" in kotlin_function_body(activity, "onNewIntent") and
+      "Intent.ACTION_MAIN" in launcher_policy and "Intent.CATEGORY_LAUNCHER" in launcher_policy and
+      "Intent.CATEGORY_LEANBACK_LAUNCHER" in launcher_policy and "intent.data != null" in launcher_policy,
+      "Only plain launcher returns may consume an existing grace grant")
+check("PreferenceManager.lock()" in kotlin_function_body(activity, "onCreate") and
+      "PreferenceManager.lock()" in kotlin_function_body(activity, "onDestroy"),
+      "Activity reconstruction must conservatively clear all grace authorization")
 profiles = without_comments(text(KOTLIN / "security/ProfileStore.kt"))
 for required in ("ApiKeyCipher.encrypt", "PinHasher.verify", "ServerPolicy.normalizeServer", "ServerPolicy.isValidApiKey"):
     check(required in profiles, f"ProfileStore missing guard: {required}")

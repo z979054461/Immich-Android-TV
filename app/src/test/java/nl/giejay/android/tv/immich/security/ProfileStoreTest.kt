@@ -144,6 +144,33 @@ class ProfileStoreTest {
         assertEquals(4, workingStore().profiles().single().pinLength)
     }
 
+    @Test fun `grace defaults to five minutes and unsupported stored values fail closed`() {
+        seed()
+        assertEquals(5, store.sessionPolicy("synthetic-id")!!.graceMinutes)
+        assertNull(store.sessionPolicy("missing"))
+        for (minutes in listOf(0, 1, 5, 15)) {
+            store.setGraceMinutes("synthetic-id", minutes)
+            assertEquals(minutes, store.sessionPolicy("synthetic-id")!!.graceMinutes)
+        }
+        assertThrows(IllegalArgumentException::class.java) { store.setGraceMinutes("synthetic-id", 60) }
+        val rows = JSONArray(prefs.getString("profiles_v1", "[]"))
+        rows.getJSONObject(0).put("pinGraceMinutes", 600)
+        prefs.edit().putString("profiles_v1", rows.toString()).commit()
+        assertEquals(0, store.sessionPolicy("synthetic-id")!!.graceMinutes)
+    }
+
+    @Test fun `changing PIN or changing grace back rotates policy revision`() {
+        seed(key = "synthetic-ciphertext")
+        val before = store.sessionPolicy("synthetic-id")!!
+        store.setGraceMinutes("synthetic-id", 1)
+        store.setGraceMinutes("synthetic-id", 5)
+        val changedBack = store.sessionPolicy("synthetic-id")!!
+        assertEquals(before.graceMinutes, changedBack.graceMinutes)
+        assertNotEquals(before.revision, changedBack.revision)
+        assertNotNull(workingStore().changePin("synthetic-id", "123456", "4321", now = 1000, elapsed = 1000))
+        assertNotEquals(changedBack.revision, store.sessionPolicy("synthetic-id")!!.revision)
+    }
+
     @Test fun `listing never exposes stored key or verifier`() {
         seed()
         assertEquals(listOf(ProfileSummary("synthetic-id", "Family")), store.profiles())

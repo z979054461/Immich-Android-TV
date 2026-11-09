@@ -10,6 +10,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
@@ -1037,6 +1039,49 @@ class TimelineViewModelTest {
         vm.rememberSelectionByAssetId("removed")
         assertNull(vm.lastSelectedAssetId)
         assertNull(vm.lastSelectedDayKey)
+    }
+
+
+    @Test
+    fun `memories ready is emitted only after its data and layout are available`() = runTest {
+        val memory = nl.giejay.android.tv.immich.api.model.Memory(
+            id = "ready-memory", type = "on_this_day", memoryAt = java.util.Date(),
+            data = nl.giejay.android.tv.immich.api.model.MemoryData(year = 2020), assets = emptyList()
+        )
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(emptyList()) },
+            fetchBucket = { Either.Right(emptyList()) },
+            fetchMemories = { Either.Right(listOf(memory)) }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        // Unconfined observes the exact readiness emission, not merely the state after load returns.
+        val layoutAtReady = async(UnconfinedTestDispatcher(testScheduler)) {
+            vm.memoriesReady.first { it }
+            vm.memories.value to vm.layout.value
+        }
+        vm.loadMemories()
+        val (memories, layout) = layoutAtReady.await()
+        assertEquals(listOf(memory), memories)
+        assertEquals(listOf(memory), layout.items.filterIsInstance<TimelineMosaicItem.MemoriesRow>().single().memories)
+    }
+
+    @Test
+    fun `optional memory error completes readiness with the existing photo layout intact`() = runTest {
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = { Either.Right(listOf(asset("photo"))) },
+            fetchMemories = { Either.Left("403 no memory permission") }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        vm.loadBucketList()
+        val layoutAtReady = async(UnconfinedTestDispatcher(testScheduler)) {
+            vm.memoriesReady.first { it }
+            vm.layout.value
+        }
+        vm.loadMemories()
+        assertEquals("photo", layoutAtReady.await().days.single().assets.single().id)
+        assertTrue(vm.memories.value.isEmpty())
+        assertNull(vm.error.value)
     }
 
 }

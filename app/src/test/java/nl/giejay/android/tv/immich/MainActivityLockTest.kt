@@ -25,6 +25,7 @@ import nl.giejay.android.tv.immich.auth.ProfileFragment
 import nl.giejay.android.tv.immich.auth.TvPinPad
 import nl.giejay.android.tv.immich.security.ProfileStore
 import nl.giejay.android.tv.immich.security.ProfileSummary
+import nl.giejay.android.tv.immich.security.ProfileSessionPolicy
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_SET
 import nl.giejay.mediaslider.config.MediaSliderConfiguration
@@ -100,7 +101,11 @@ class MainActivityLockTest {
     }
 
     private fun syntheticUnlockedScreen(activity: MainActivity) {
-        publish(ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE).edit()
+            .putString("profiles_v1", JSONArray().put(JSONObject().put("id", "immediate-id")
+                .put("name", "Immediate Profile").put("pinGraceMinutes", 0)).toString()).commit()
+        PreferenceManager.activateProfile("immediate-id", ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
         val nav = host(activity).navController
         // Exercise real NavHost back-stack saving/clearing without loading a real home/photo screen.
         (nav.graph.findNode(R.id.homeFragment) as FragmentNavigator.Destination)
@@ -200,7 +205,7 @@ class MainActivityLockTest {
 
     private fun seedPicker(pinLength: Int? = null) {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val row = JSONObject().put("id", "test-id").put("name", "Test User")
+        val row = JSONObject().put("id", "test-id").put("name", "Test User").put("pinGraceMinutes", 0)
         if (pinLength != null) row.put("pinLength", pinLength)
         context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE).edit()
             .putString("profiles_v1", JSONArray().put(row).toString()).commit()
@@ -233,6 +238,7 @@ class MainActivityLockTest {
 
     private fun verifiedStore(pinLength: Int? = null): ProfileStore = Mockito.mock(ProfileStore::class.java).also { store ->
         Mockito.`when`(store.profiles()).thenReturn(listOf(ProfileSummary("test-id", "Test User", pinLength)))
+        Mockito.`when`(store.sessionPolicy(Mockito.anyString())).thenReturn(ProfileSessionPolicy(0, "synthetic-revision"))
         Mockito.`when`(store.unlock(eq("test-id"), eq("123456"), Mockito.anyLong(), Mockito.anyLong()))
             .thenReturn(ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
         setStore(store)

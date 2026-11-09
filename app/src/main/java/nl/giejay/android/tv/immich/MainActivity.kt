@@ -1,6 +1,10 @@
 package nl.giejay.android.tv.immich
 
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -15,6 +19,7 @@ import androidx.navigation.fragment.NavHostFragment
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.shared.prefs.MetaDataScreen
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
+import nl.giejay.android.tv.immich.security.LauncherEntryPolicy
 import nl.giejay.android.tv.immich.shared.viewmodel.KeyEventsViewModel
 import nl.giejay.mediaslider.adapter.AlignOption
 import timber.log.Timber
@@ -26,6 +31,12 @@ class MainActivity : FragmentActivity() {
     private lateinit var keyEventsModel: KeyEventsViewModel
     private lateinit var navGraph: NavGraph
     private lateinit var navController: NavController
+    private var foreground = false
+    private val screenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON) PreferenceManager.expireBackgroundGrace()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Never restore authenticated fragments/back stack from process or activity recreation.
@@ -36,6 +47,10 @@ class MainActivity : FragmentActivity() {
         Timber.i("Booting main activity")
 
         setContentView(R.layout.activity_main)
+        // Do not wake the TV just to clean up. When it wakes naturally, discard expired
+        // credentials even if the app remains in the background and its Handler timer was paused.
+        ContextCompat.registerReceiver(this, screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON),
+            ContextCompat.RECEIVER_NOT_EXPORTED)
 
         keyEventsModel = ViewModelProvider(this)[KeyEventsViewModel::class.java]
 
@@ -58,13 +73,22 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        lockAndShowProfiles()
+        if (!LauncherEntryPolicy.permitsGrace(intent)) {
+            PreferenceManager.lock()
+            if (foreground) lockAndShowProfiles()
+        } else if (foreground && !PreferenceManager.isLoggedId()) {
+            // onNewIntent can arrive either side of onStart. A consumed grant is never renewed.
+            showForegroundEntry()
+        } else if (foreground && (PreferenceManager.activeGraceMinutes() ?: 0) == 0) {
+            lockAndShowProfiles()
+        }
     }
 
     override fun onStop() {
-        // Stop network and obscure pixels immediately, before any later resume callbacks.
-        PreferenceManager.lock()
+        // Hide pixels before any background work; only a private in-memory grant may remain.
+        foreground = false
         findViewById<View>(R.id.nav_host_fragment).visibility = View.INVISIBLE
+        PreferenceManager.suspendForBackground()
         ViewModelProvider(this)[MediaSliderViewModel::class.java].configuration = null
         BackgroundManager.getInstance(this).drawable = null
         super.onStop()
@@ -72,8 +96,24 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (::navController.isInitialized && !PreferenceManager.isLoggedId()) lockAndShowProfiles()
-        findViewById<View>(R.id.nav_host_fragment).visibility = View.VISIBLE
+        foreground = true
+        if (::navController.isInitialized) showForegroundEntry()
+    }
+
+    private fun showForegroundEntry() {
+        val container = findViewById<View>(R.id.nav_host_fragment)
+        container.visibility = View.INVISIBLE
+        if (!PreferenceManager.isLoggedId()) {
+            if (LauncherEntryPolicy.permitsGrace(intent) && PreferenceManager.resumeFromBackground()) {
+                showUnlockedHome()
+            } else {
+                lockAndShowProfiles()
+            }
+        }
+        // Never briefly reveal the old hidden graph or its pending photo/video results.
+        (supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment)
+            .childFragmentManager.executePendingTransactions()
+        container.visibility = View.VISIBLE
     }
 
     fun lockAndShowProfiles() {
@@ -107,6 +147,9 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
+        // Conservatively require a PIN after Activity reconstruction as well as process restart.
+        PreferenceManager.lock()
+        runCatching { unregisterReceiver(screenOnReceiver) }
         super.onDestroy()
         Timber.i("Main activity got destroyed")
     }
