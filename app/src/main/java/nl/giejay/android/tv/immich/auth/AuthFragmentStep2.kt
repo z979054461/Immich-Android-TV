@@ -75,6 +75,7 @@ class AuthFragmentStep2 : Fragment() {
         form.addView(key)
         label(getString(R.string.profiles_new_pin))
         fun pinField() = EditText(context).apply {
+            // Validate the full input on submit; a length filter would silently truncate pasted PINs.
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             isSaveEnabled = false
             setSingleLine(true)

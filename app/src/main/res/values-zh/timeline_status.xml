@@ -7,4 +7,6 @@
     <string name="timeline_load_error">时间线加载失败。请检查服务器连接、证书和 Immich 版本后重试。已加载的照片会保留。</string>
     <string name="timeline_endpoint_error">时间线接口返回 404。请检查服务器地址、反向代理的 API 路由，以及 Immich 版本是否支持时间线接口。</string>
     <string name="timeline_version_error">服务器拒绝了时间线请求（400）。请检查与当前 Immich 版本的兼容性。</string>
+    <string name="timeline_continue">继续检查较早月份</string>
+    <string name="timeline_more_months">已检查的月份暂无照片，较早月份尚未检查。</string>
 </resources>

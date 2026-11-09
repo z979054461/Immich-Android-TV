@@ -9,18 +9,32 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-data class ProfileSummary(val id: String, val name: String)
+/** Non-secret input-format hint; missing/unknown values always require explicit confirmation. */
+data class ProfileSummary(val id: String, val name: String, val pinLength: Int? = null)
 
 /** Only encrypted credentials and salted PIN hashes are durable. No automatic unlock on startup. */
-class ProfileStore(private val prefs: SharedPreferences) {
+class ProfileStore internal constructor(
+    private val prefs: SharedPreferences,
+    private val encryptKey: (String) -> String,
+    private val decryptKey: (String) -> String
+) {
+    constructor(prefs: SharedPreferences) : this(prefs,
+        { ApiKeyCipher.encrypt(it) }, { ApiKeyCipher.decryptOrAdoptLegacy(it) })
     private fun read(): JSONArray = JSONArray(prefs.getString("profiles_v1", "[]"))
     private fun write(rows: JSONArray) {
-        check(prefs.edit().putString("profiles_v1", rows.toString()).commit()) { "Secure storage unavailable" }
+        val previous = prefs.getString("profiles_v1", null)
+        val saved = runCatching { prefs.edit().putString("profiles_v1", rows.toString()).commit() }.getOrDefault(false)
+        if (!saved) {
+            // SharedPreferences updates memory even when its disk commit fails. Restore the
+            // previous verifier in memory too, so a failed PIN change cannot silently take effect.
+            runCatching { prefs.edit().putString("profiles_v1", previous).commit() }
+            error("Secure storage unavailable")
+        }
     }
     @Synchronized fun profiles(): List<ProfileSummary> {
         val rows = read()
         return (0 until rows.length()).map { rows.getJSONObject(it).let { row ->
-            ProfileSummary(row.getString("id"), row.getString("name"))
+            ProfileSummary(row.getString("id"), row.getString("name"), row.optInt("pinLength", 0).takeIf { it == PinHasher.PIN_LENGTH })
         } }
     }
     @Synchronized fun add(name: String, host: String, key: String, pin: String): String {
@@ -30,11 +44,11 @@ class ProfileStore(private val prefs: SharedPreferences) {
         require(rows.length() < 12)
         val salt = PinHasher.salt()
         val hash = PinHasher.hash(pin, salt)
-        val encrypted = ApiKeyCipher.encrypt(key)
+        val encrypted = encryptKey(key)
         val id = UUID.randomUUID().toString()
         rows.put(JSONObject().put("id", id).put("name", name.trim()).put("host", server)
             .put("key", encrypted).put("salt", encode(salt)).put("hash", encode(hash))
-            .put("failures", 0).put("nextAttempt", 0L))
+            .put("failures", 0).put("nextAttempt", 0L).put("pinLength", PinHasher.PIN_LENGTH))
         write(rows)
         return id
     }
@@ -61,13 +75,39 @@ class ProfileStore(private val prefs: SharedPreferences) {
             .put("lastElapsed", elapsed).put("nextElapsed", elapsed + delay)
         write(rows)
         if (!PinHasher.verify(pin, decode(row.getString("salt")), decode(row.getString("hash")))) return null
-        val key = ApiKeyCipher.decryptOrAdoptLegacy(row.getString("key"))
+        val key = decryptKey(row.getString("key"))
         val host = ServerPolicy.normalizeServer(row.getString("host"))
         if (!ServerPolicy.isValidApiKey(key)) return null
         row.put("failures", 0).put("nextAttempt", 0L).put("nextElapsed", 0L)
+        // Learn the hint only after full verification; no inference from a hash or entered prefix.
+        if (PinHasher.valid(pin)) row.put("pinLength", PinHasher.PIN_LENGTH)
         write(rows)
         return ApiClientConfig(host, key, false, false)
     }
+    /**
+     * Reverify the complete current PIN through the normal persisted throttle. A previous UI
+     * unlock is not authority to overwrite a verifier that may have changed since then.
+     * The replacement and salt are committed together before any unlocked session is returned.
+     */
+    @Synchronized fun changePin(
+        id: String,
+        currentPin: String,
+        newPin: String,
+        now: Long = System.currentTimeMillis(),
+        elapsed: Long = SystemClock.elapsedRealtime()
+    ): ApiClientConfig? {
+        require(PinHasher.valid(newPin))
+        val config = unlock(id, currentPin, now, elapsed) ?: return null
+        val rows = read()
+        val row = (0 until rows.length()).map { rows.getJSONObject(it) }.firstOrNull { it.getString("id") == id }
+            ?: return null
+        val salt = PinHasher.salt()
+        row.put("salt", encode(salt)).put("hash", encode(PinHasher.hash(newPin, salt)))
+            .put("pinLength", PinHasher.PIN_LENGTH)
+        write(rows)
+        return config
+    }
+
     @Synchronized fun remove(id: String) {
         val rows = read()
         val remaining = JSONArray()

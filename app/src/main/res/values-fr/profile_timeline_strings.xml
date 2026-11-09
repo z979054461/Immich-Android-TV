@@ -4,10 +4,10 @@
   <string name="profiles_intro">Choisissez votre profil. Un code PIN local protège les photos à chaque réouverture.</string>
   <string name="profiles_add">+ Ajouter un compte Immich</string>
   <string name="profiles_name">Nom du profil (1 à 40 caractères)</string>
-  <string name="profiles_new_pin">Créer un code PIN de 6 à 12 chiffres</string>
+  <string name="profiles_new_pin">Créer un code PIN de 4 chiffres</string>
   <string name="profiles_confirm_pin">Confirmer le code PIN</string>
-  <string name="profiles_pin_invalid">Saisissez deux fois le même code de 6 à 12 chiffres.</string>
-  <string name="profiles_enter_pin">Saisir votre code PIN local</string>
+  <string name="profiles_pin_invalid">Saisissez deux fois le même code de 4 chiffres exactement (0–9).</string>
+  <string name="profiles_enter_pin">Saisissez votre code PIN de 4 chiffres. Pour un ancien profil, saisissez d’abord le code complet de 6 à 12 chiffres.</string>
   <string name="profiles_unlock">Déverrouiller</string>
   <string name="profiles_wrong_pin">Déverrouillage impossible. Vérifiez le code PIN. Après 5 tentatives, attendez 30 secondes ; les tentatives suivantes peuvent imposer jusqu’à 5 minutes.</string>
   <string name="profiles_switch">Verrouiller / changer de profil</string>
@@ -22,4 +22,19 @@
   <string name="timeline_load_error">Chargement impossible. Vérifiez la connexion, le certificat et la version d’Immich, puis réessayez. Les photos déjà chargées sont conservées.</string>
   <string name="timeline_endpoint_error">Le serveur a renvoyé 404. Vérifiez son adresse, le routage API du proxy inverse et la prise en charge des périodes de chronologie par cette version d’Immich.</string>
   <string name="timeline_version_error">Le serveur a refusé la requête de chronologie (400). Vérifiez la compatibilité de votre version d’Immich.</string>
+    <string name="profiles_migrate_pin">Ancien code vérifié. Choisissez et confirmez un nouveau code PIN de 4 chiffres. Annuler conserve l’ancien code et laisse le profil verrouillé.</string>
+    <string name="profiles_save_pin">Enregistrer et déverrouiller</string>
+    <string name="profiles_pin_save_failed">Impossible d’enregistrer le nouveau code. Réessayez ou annulez pour saisir votre code actuel.</string>
+    <string name="timeline_continue">Vérifier les mois précédents</string>
+    <string name="timeline_more_months">Aucune photo dans les mois déjà vérifiés. Les mois précédents restent à vérifier.</string>
+    <string name="profiles_pin_delete">Effacer le dernier chiffre</string>
+    <string name="profiles_pin_confirm_action">Confirmer le code PIN</string>
+    <string name="profiles_pin_digit_count">%1$d chiffres saisis</string>
+    <string name="profiles_pin_auto_prompt">Saisissez 4 chiffres. La vérification commence automatiquement.</string>
+    <string name="profiles_pin_legacy_prompt">Saisissez votre code actuel complet, puis sélectionnez ✓. Les anciens codes comportent 6 à 12 chiffres.</string>
+    <string name="profiles_pin_verifying">Vérification du code PIN…</string>
+    <string name="profiles_pin_saving">Enregistrement du code PIN…</string>
+    <string name="profiles_pin_migrate_choose">Étape 1 sur 2 : ancien code vérifié. Choisissez 4 nouveaux chiffres. Annuler garde l’ancien code et le profil verrouillé.</string>
+    <string name="profiles_pin_migrate_confirm">Étape 2 sur 2 : saisissez les mêmes 4 chiffres pour enregistrer et déverrouiller.</string>
+    <string name="profiles_pin_mismatch">Les codes ne correspondent pas. Choisissez à nouveau un code de 4 chiffres.</string>
 </resources>

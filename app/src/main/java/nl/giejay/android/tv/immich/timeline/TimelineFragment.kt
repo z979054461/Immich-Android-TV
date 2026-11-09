@@ -95,6 +95,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
     private var loadingNextBucket = false
     private var loadingNewerBucket = false
     private var contentWidthPx = 0
+    private var contentWidthListener: View.OnLayoutChangeListener? = null
+    private var lastStatus: TimelineStatus? = null
     private var rowHeightPx = 0
     private var gapPx = 0
 
@@ -163,7 +165,13 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         statusMessage = view.findViewById(R.id.timeline_status_message)
         retryButton = view.findViewById<Button>(R.id.timeline_retry).apply {
             setOnClickListener {
-                viewLifecycleOwner.lifecycleScope.launch { viewModel.loadBucketList(refresh = true) }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (viewModel.initialSearchPending.value && viewModel.error.value == null) {
+                        viewModel.continueInitialLoad()
+                    } else {
+                        viewModel.loadBucketList(refresh = true)
+                    }
+                }
             }
         }
         recyclerView = view.findViewById(R.id.timeline_recycler)
@@ -307,6 +315,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         }
 
         mainFragmentAdapter.fragmentHost?.notifyViewCreated(mainFragmentAdapter)
+        // Our loading/error UI is ready now. Leanback must not hide this page until the API finishes.
+        notifyTimelineViewReady()
         // Host is attached by now; keep Browse from flashing/animating the "Timeline" title.
         hideBrowseTitle()
 
@@ -342,14 +352,16 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             }
         )
 
-        rv.post {
-            contentWidthPx = (rv.width - rv.paddingStart - rv.paddingEnd).coerceAtLeast(1)
+        var initialMeasuredWidth = true
+        contentWidthListener = rv.observeTimelineContentWidth { measuredWidth ->
+            contentWidthPx = measuredWidth
             // Recreated while the menu is already open (e.g. Photos → Timeline): never auto-enter.
             // Leave-off was captured when the user left Timeline; do not wipe it with a null focus.
-            if (isBrowseShowingHeaders()) {
+            if (initialMeasuredWidth && isBrowseShowingHeaders()) {
                 beginResumeFocusLock()
                 selectionRestored = false
             }
+            initialMeasuredWidth = false
 
             viewModel.setLayoutConfig(
                 widthPx = contentWidthPx,
@@ -359,6 +371,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                 yesterdayLabel = getString(R.string.yesterday)
             )
             viewModel.triggerRecomputeLayout()
+            lastStatus?.let(::renderStatus)
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -370,8 +383,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                 }
                 launch {
                     combine(viewModel.isLoading, viewModel.initialLoadComplete,
-                        viewModel.error, viewModel.bucketAssets) { loading, complete, error, assets ->
-                        TimelineStatus(loading, complete, error, assets.values.any { it.isNotEmpty() })
+                        viewModel.error, viewModel.layout, viewModel.initialSearchPending) { loading, complete, error, layout, pending ->
+                        TimelineStatus(loading, complete, error, layout.days.any { it.assets.isNotEmpty() }, pending)
                     }.collect { renderStatus(it) }
                 }
                 launch {
@@ -392,6 +405,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
 
     override fun onResume() {
         super.onResume()
+        if (!::viewModel.isInitialized) return
+        notifyTimelineViewReady() // Also covers a Browse host attached after onViewCreated.
         clearBackground()
         // Leanback may restore focus to the opened mosaic cell before leave-off runs.
         if (TimelineLeaveOff.shouldForceLeaveOffRestore(viewModel.pendingResumeAssetId)) {
@@ -411,6 +426,11 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         (parentFragment as? BrowseSupportFragment)?.setBrowseTransitionListener(null)
         focusVideoPreview?.release()
         focusVideoPreview = null
+        contentWidthListener?.let { recyclerView?.removeOnLayoutChangeListener(it) }
+        contentWidthListener = null
+        contentWidthPx = 0
+        lastStatus = null
+        dataReadyNotified = false
         super.onDestroyView()
         recyclerView = null
         progressBar = null
@@ -429,14 +449,26 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
     }
 
     private data class TimelineStatus(
-        val loading: Boolean, val complete: Boolean, val error: String?, val hasAssets: Boolean
+        val loading: Boolean, val complete: Boolean, val error: String?, val hasAssets: Boolean,
+        val moreMonthsPending: Boolean
     )
 
+    private fun notifyTimelineViewReady() {
+        if (dataReadyNotified || view == null) return
+        mainFragmentAdapter.fragmentHost?.let { host ->
+            host.notifyDataReady(mainFragmentAdapter)
+            dataReadyNotified = true
+        }
+    }
+
     private fun renderStatus(state: TimelineStatus) {
-        progressBar?.visibility = if (state.loading) View.VISIBLE else View.GONE
-        val showStatus = !state.loading && state.complete && (state.error != null || !state.hasAssets)
+        lastStatus = state
+        val loading = state.loading || contentWidthPx <= 0
+        progressBar?.visibility = if (loading) View.VISIBLE else View.GONE
+        val showStatus = !loading && state.complete && (state.error != null || !state.hasAssets)
         statusView?.visibility = if (showStatus) View.VISIBLE else View.GONE
-        retryButton?.isEnabled = !state.loading
+        retryButton?.isEnabled = !loading
+        retryButton?.setText(if (state.moreMonthsPending && state.error == null) R.string.timeline_continue else R.string.timeline_retry)
         if (!showStatus) return
         // Keep already loaded photos usable when a later month fails.
         (statusView?.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
@@ -444,6 +476,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             statusView?.layoutParams = params
         }
         statusMessage?.setText(when {
+            state.error == null && state.moreMonthsPending -> R.string.timeline_more_months
             state.error == null -> R.string.timeline_empty
             state.error.contains("403") || state.error.contains("required permission", ignoreCase = true) -> R.string.timeline_permission_error
             state.error.contains("401") -> R.string.timeline_auth_error
@@ -501,12 +534,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         scrubberView?.setIndicatorMonthKey(bucketKey)
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             viewModel.loadBucket(bucketKey)
-            val list = viewModel.buckets.value
-            val index = list.indexOfFirst { it.timeBucket == bucketKey }
-            if (index >= 0) {
-                list.getOrNull(index - 1)?.let { viewModel.loadBucket(it.timeBucket) }
-                list.getOrNull(index + 1)?.let { viewModel.loadBucket(it.timeBucket) }
-            }
+            // A jump loads only its requested month. Adjacent months wait for actual scrolling.
             withContext(Dispatchers.Main) {
                 if (!isAdded) return@withContext
                 // Adapter may lag StateFlow by a frame; try now and again after layout.
@@ -975,30 +1003,12 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         val adapter = mosaicAdapter ?: return
         val lm = rv.layoutManager as? LinearLayoutManager ?: return
         val lastVisible = lm.findLastVisibleItemPosition()
-        val lastItem = (adapter.itemCount - 1).coerceAtLeast(0)
-        // Also treat "focused on last rows" as near-end — D-pad doesn't always scroll enough
-        // for onScrolled alone to keep loading.
+        // Count rows, not date headings: a single busy day can contain thousands of rows.
         val focusedPos = rv.findFocus()?.let { focused ->
             val id = focused.getTag(R.id.timeline_mosaic_cell_asset_id) as? String
             id?.let { adapter.positionOfAsset(it) }
         } ?: RecyclerView.NO_POSITION
-        val remainingFromVisible =
-            if (lastVisible != RecyclerView.NO_POSITION) {
-                adapter.remainingDayHeadersFrom(lastVisible)
-            } else {
-                Int.MAX_VALUE
-            }
-        val remainingFromFocus =
-            if (focusedPos != RecyclerView.NO_POSITION) {
-                adapter.remainingDayHeadersFrom(focusedPos)
-            } else {
-                Int.MAX_VALUE
-            }
-        val nearEnd = remainingFromVisible <= 2 ||
-            remainingFromFocus <= 2 ||
-            (lastVisible != RecyclerView.NO_POSITION && lastVisible >= (lastItem - 4).coerceAtLeast(0)) ||
-            (focusedPos != RecyclerView.NO_POSITION && focusedPos >= (lastItem - 4).coerceAtLeast(0))
-        if (!nearEnd) return
+        if (!TimelineLoadPolicy.nearEnd(lastVisible, focusedPos, adapter.itemCount)) return
 
         // Extend farther back in time — never fill newest-end gaps while at the oldest end.
         val next = viewModel.nextOlderUnloadedBucket() ?: return

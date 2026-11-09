@@ -2,16 +2,13 @@ package nl.giejay.android.tv.immich.auth
 
 import android.app.AlertDialog
 import android.os.Bundle
-import android.text.InputType
 import android.view.Gravity
 import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
 import android.widget.Button
-import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -25,12 +22,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.giejay.android.tv.immich.MainActivity
 import nl.giejay.android.tv.immich.R
+import nl.giejay.android.tv.immich.security.PinHasher
 import nl.giejay.android.tv.immich.security.ProfileSummary
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 
 /** The only entry point after launch, process restoration, Home, or profile switching. */
 class ProfileFragment : Fragment() {
-    private var pinInput: EditText? = null
+    private var clearPinSecrets: (() -> Unit)? = null
     private var dialog: AlertDialog? = null
     private var busy = false
 
@@ -130,60 +128,133 @@ class ProfileFragment : Fragment() {
 
     private fun showUnlock(profile: ProfileSummary) {
         if (busy || dialog?.isShowing == true) return
-        val input = EditText(requireContext()).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            isSaveEnabled = false
-            setSingleLine(true)
-            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING or EditorInfo.IME_ACTION_DONE
-            if (android.os.Build.VERSION.SDK_INT >= 26) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        val automatic = profile.pinLength == PinHasher.PIN_LENGTH
+        val pad = TvPinPad(requireContext(), automatic).apply {
+            setPrompt(getString(if (automatic) R.string.profiles_pin_auto_prompt else R.string.profiles_pin_legacy_prompt))
         }
-        pinInput = input
-        dialog = AlertDialog.Builder(requireContext()).setTitle(profile.name)
-            .setMessage(R.string.profiles_enter_pin).setView(input)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.profiles_unlock, null).create()
-        dialog?.setOnDismissListener { input.text.clear(); pinInput = null }
-        dialog?.show()
-        dialog?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        val unlockDialog = dialog!!
-        val unlock = unlockDialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        unlock.setOnClickListener {
-            if (busy) return@setOnClickListener
+        val unlockDialog = AlertDialog.Builder(requireContext()).setTitle(profile.name)
+            .setView(pad).setNegativeButton(android.R.string.cancel, null).create()
+        dialog = unlockDialog
+        val clear = { pad.clear() }
+        clearPinSecrets = clear
+        unlockDialog.setOnDismissListener {
+            clear()
+            if (dialog === unlockDialog) clearPinSecrets = null
+        }
+        unlockDialog.setOnKeyListener { _, keyCode, event -> pad.handleKey(keyCode, event) }
+        unlockDialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        unlockDialog.show()
+        pad.connectCancelButton(unlockDialog.getButton(AlertDialog.BUTTON_NEGATIVE))
+        pad.onSubmit = submit@{ pin ->
+            if (busy || !unlockDialog.isShowing) return@submit
             busy = true
-            unlock.isEnabled = false
-            val pin = input.text.toString()
-            input.text.clear()
+            // Render feedback and disable every digit before dispatching the expensive KDF.
+            pad.setBusy(true, getString(R.string.profiles_pin_verifying))
             viewLifecycleOwner.lifecycleScope.launch {
                 val config = withContext(Dispatchers.IO) {
                     runCatching { PreferenceManager.profiles.unlock(profile.id, pin) }.getOrNull()
                 }
                 busy = false
                 if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || dialog !== unlockDialog || !unlockDialog.isShowing) return@launch
-                unlock.isEnabled = true
                 if (config == null) {
-                    input.error = getString(R.string.profiles_wrong_pin)
-                    input.requestFocus()
+                    pad.setBusy(false)
+                    pad.showError(getString(R.string.profiles_wrong_pin))
                 } else {
-                    dialog?.dismiss()
+                    unlockDialog.dismiss()
+                    if (PinHasher.isLegacy(pin)) {
+                        showPinChange(profile, pin.toCharArray())
+                    } else {
+                        // No animation, timer or network request delays a verified unlock.
+                        PreferenceManager.activateProfile(profile.id, config)
+                        (activity as? MainActivity)?.showUnlockedHome()
+                    }
+                }
+            }
+        }
+        pad.focusFirstKey()
+    }
+
+    private fun showPinChange(profile: ProfileSummary, currentPin: CharArray) {
+        val pad = TvPinPad(requireContext(), automatic = true)
+        var newPin: CharArray? = null
+        fun startAgain(error: String? = null) {
+            newPin?.fill('\u0000')
+            newPin = null
+            pad.clear()
+            pad.setPrompt(getString(R.string.profiles_pin_migrate_choose))
+            if (error != null) pad.showError(error) else pad.focusFirstKey()
+        }
+        val changeDialog = AlertDialog.Builder(requireContext()).setTitle(R.string.profiles_new_pin)
+            .setView(pad).setNegativeButton(android.R.string.cancel, null).create()
+        dialog = changeDialog
+        val clear = {
+            currentPin.fill('\u0000')
+            newPin?.fill('\u0000')
+            newPin = null
+            pad.clear()
+        }
+        clearPinSecrets = clear
+        changeDialog.setOnDismissListener {
+            clear()
+            if (dialog === changeDialog) clearPinSecrets = null
+        }
+        changeDialog.setOnKeyListener { _, keyCode, event -> pad.handleKey(keyCode, event) }
+        changeDialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        changeDialog.show()
+        val cancel = changeDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+        pad.connectCancelButton(cancel)
+        pad.onSubmit = submit@{ entered ->
+            if (busy || !changeDialog.isShowing) return@submit
+            val chosen = newPin
+            if (chosen == null) {
+                newPin = entered.toCharArray()
+                pad.setPrompt(getString(R.string.profiles_pin_migrate_confirm))
+                pad.focusFirstKey()
+                return@submit
+            }
+            if (String(chosen) != entered) {
+                startAgain(getString(R.string.profiles_pin_mismatch))
+                return@submit
+            }
+            busy = true
+            pad.setBusy(true, getString(R.string.profiles_pin_saving))
+            cancel.isEnabled = false
+            // Submitted writes may complete while backgrounded. Never imply Cancel can undo
+            // a write in flight, and never activate after dismissal/backgrounding.
+            changeDialog.setCancelable(false)
+            val oldPin = String(currentPin)
+            chosen.fill('\u0000')
+            newPin = null
+            viewLifecycleOwner.lifecycleScope.launch {
+                val config = withContext(Dispatchers.IO) {
+                    runCatching { PreferenceManager.profiles.changePin(profile.id, oldPin, entered) }.getOrNull()
+                }
+                busy = false
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || dialog !== changeDialog || !changeDialog.isShowing) return@launch
+                cancel.isEnabled = true
+                changeDialog.setCancelable(true)
+                if (config == null) {
+                    pad.setBusy(false)
+                    startAgain(getString(R.string.profiles_pin_save_failed))
+                } else {
+                    changeDialog.dismiss()
                     PreferenceManager.activateProfile(profile.id, config)
                     (activity as? MainActivity)?.showUnlockedHome()
                 }
             }
         }
-        input.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_DONE) { unlock.performClick(); true } else false
-        }
-        input.requestFocus()
+        startAgain()
     }
 
     override fun onStop() {
-        pinInput?.text?.clear()
+        clearPinSecrets?.invoke()
         dialog?.dismiss()
         super.onStop()
     }
 
     override fun onDestroyView() {
-        pinInput?.text?.clear()
+        clearPinSecrets?.invoke()
+        clearPinSecrets = null
         dialog?.dismiss()
         dialog = null
         busy = false

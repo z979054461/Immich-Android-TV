@@ -230,4 +230,22 @@ class TimelineMosaicLayoutEngineTest {
         assertEquals("jan", map["aug-vid"]?.downAssetId)
         assertEquals("aug-vid", map["jan"]?.upAssetId)
     }
+
+    @Test
+    fun `dense day keeps every asset in order without mutating the source`() {
+        val photos = List(20_000) { asset("dense-$it", if (it % 2 == 0) 0.75 else 1.5) }
+        val items = TimelineMosaicLayoutEngine.layout(
+            days = listOf(TimelineDay("2026-07-01", LocalDate.parse("2026-07-01"), photos)),
+            contentWidthPx = 1816,
+            rowHeightPx = 240,
+            gapPx = 12,
+            dayLabel = { "Dense import" }
+        )
+        val cells = items.filterIsInstance<TimelineMosaicItem.Row>().flatMap { it.cells }
+        assertEquals(20_000, photos.size)
+        assertEquals(photos.map { it.id }, cells.map { it.asset.id })
+        assertTrue(cells.all { it.widthPx > 0 && it.heightPx > 0 })
+        assertEquals(20_000, cells.map { it.asset.id }.toSet().size)
+    }
+
 }

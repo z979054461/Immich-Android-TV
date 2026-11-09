@@ -7,4 +7,6 @@
     <string name="timeline_load_error">Could not load the timeline. Check the server connection, certificate and Immich version, then retry. Existing photos are kept.</string>
     <string name="timeline_endpoint_error">The server returned 404 for the timeline. Check the server address and reverse proxy API routing, and confirm this Immich version supports timeline buckets.</string>
     <string name="timeline_version_error">The server rejected the timeline request (400). Check compatibility with your Immich version.</string>
+    <string name="timeline_continue">Continue checking older months</string>
+    <string name="timeline_more_months">No photos found in the months checked so far. Older months have not been checked yet.</string>
 </resources>

@@ -179,22 +179,23 @@ object TimelineMosaicLayoutEngine {
         out: MutableList<TimelineMosaicItem>
     ) {
         if (day.assets.isEmpty()) return
-        val remaining = day.assets.toMutableList()
+        // A cursor avoids shifting the whole remaining list for every asset (quadratic for
+        // a dense day, such as a large phone import). Every asset is consumed exactly once.
+        var assetIndex = 0
         var rowSerial = 0
-        while (remaining.isNotEmpty()) {
+        while (assetIndex < day.assets.size) {
             val batch = mutableListOf<TimelineAsset>()
             var used = 0
-            while (remaining.isNotEmpty()) {
-                val next = remaining.first()
+            while (assetIndex < day.assets.size) {
+                val next = day.assets[assetIndex++]
                 val w = naturalWidth(next.ratio, rowHeightPx)
                 val extraGap = if (batch.isEmpty()) 0 else gapPx
                 // Always take at least one; include the item that tips over, then scale down.
-                remaining.removeAt(0)
                 batch += next
                 used += extraGap + w
                 if (used > contentWidthPx) break
             }
-            val isLastRow = remaining.isEmpty()
+            val isLastRow = assetIndex == day.assets.size
             val rowId = "${day.dayKey}-$rowSerial"
             rowSerial++
             out += TimelineMosaicItem.Row(

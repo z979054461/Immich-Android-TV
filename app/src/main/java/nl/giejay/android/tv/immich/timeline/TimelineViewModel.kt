@@ -61,6 +61,14 @@ class TimelineViewModel(
     private val _layout = MutableStateFlow(TimelineLayout())
     val layout: StateFlow<TimelineLayout> = _layout.asStateFlow()
 
+    private data class AssetFocusIndex(
+        val dayByAsset: Map<String, String> = emptyMap(),
+        val bucketByAsset: Map<String, String> = emptyMap(),
+        val orderedAssets: List<Pair<String, TimelineAsset>> = emptyList()
+    )
+    // Published with a completed data/layout snapshot; focus never scans or copies the library.
+    @Volatile private var assetFocusIndex = AssetFocusIndex()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -69,10 +77,18 @@ class TimelineViewModel(
 
     private val _initialLoadComplete = MutableStateFlow(false)
     val initialLoadComplete: StateFlow<Boolean> = _initialLoadComplete.asStateFlow()
+    /** An empty bounded search batch ended with older months still to check. */
+    private val _initialSearchPending = MutableStateFlow(false)
+    val initialSearchPending: StateFlow<Boolean> = _initialSearchPending.asStateFlow()
     private var bucketListLoaded = false
     private val listMutex = Mutex()
     private val layoutMutex = Mutex()
-    private val failedBuckets = ConcurrentHashMap.newKeySet<String>()
+    private val stateLock = Any()
+    private var indexGeneration = 0L
+    private var indexError: String? = null
+    private val failedBuckets = ConcurrentHashMap<String, String>()
+    // Keep old photos visible during refresh, but never treat them as a fresh response.
+    private val staleBuckets = mutableSetOf<String>()
 
     private var contentWidthPx: Int = 0
     private var rowHeightPx: Int = 0
@@ -80,7 +96,8 @@ class TimelineViewModel(
     private var todayLabel: String = ""
     private var yesterdayLabel: String = ""
 
-    private val inFlight = ConcurrentHashMap<String, Deferred<Either<String, List<TimelineAsset>>>>()
+    private data class BucketRequest(val generation: Long, val timeBucket: String)
+    private val inFlight = ConcurrentHashMap<BucketRequest, Deferred<Either<String, List<TimelineAsset>>>>()
 
     /** Survives TimelineFragment recreation when returning from the photo slider. */
     var lastSelectedDayKey: String? = null
@@ -145,38 +162,106 @@ class TimelineViewModel(
         this.yesterdayLabel = yesterdayLabel
     }
 
-    // Fetch only one complete month at startup. The API has no per-bucket pagination.
+    /**
+     * Find the first non-empty month without mistaking an empty month for an empty library.
+     * Each invocation makes at most [MAX_INITIAL_BUCKET_REQUESTS] month requests. Successfully
+     * checked empty months remain cached, so [continueInitialLoad] resumes instead of restarting.
+     * [eagerMonths] counts non-empty months; zero fetches only the index.
+     */
     suspend fun loadBucketList(eagerMonths: Int = 1, refresh: Boolean = false) = listMutex.withLock {
+        require(eagerMonths >= 0)
         _isLoading.value = true
-        _error.value = null
+        _initialSearchPending.value = false
+        var cancelled = false
         try {
-            if (refresh) {
-                bucketListLoaded = false
-                _bucketAssets.update { assets -> assets.filterValues { it.isNotEmpty() } }
-            }
+            if (refresh) bucketListLoaded = false
             if (!bucketListLoaded) {
                 when (val result = safeFetch { fetchBuckets() }) {
                     is Either.Left -> {
-                        _error.value = result.value
+                        synchronized(stateLock) {
+                            indexError = result.value
+                            publishError()
+                        }
                         return@withLock
                     }
                     is Either.Right -> {
-                        _buckets.value = result.value.distinctBy { it.timeBucket }
+                        val buckets = result.value.distinctBy { it.timeBucket }
                             .sortedByDescending { it.timeBucket }
+                        val keys = buckets.mapTo(mutableSetOf()) { it.timeBucket }
+                        val superseded = synchronized(stateLock) {
+                            indexGeneration++
+                            _buckets.value = buckets
+                            _bucketAssets.update { assets -> assets.filterKeys { it in keys } }
+                            staleBuckets.clear()
+                            staleBuckets.addAll(_bucketAssets.value.keys)
+                            failedBuckets.keys.retainAll(keys)
+                            indexError = null
+                            publishError()
+                            inFlight.filterKeys { it.generation != indexGeneration }.values.toList()
+                        }
+                        // An older response must not repopulate a removed month or overwrite new data.
+                        superseded.forEach { it.cancel() }
                         bucketListLoaded = true
+                        recomputeLayout()
                     }
                 }
             }
-            // A successful index request must not prevent retrying failed asset requests.
-            val targets = (_buckets.value.take(eagerMonths).map { it.timeBucket } +
-                failedBuckets.toList()).distinct()
-            for (key in targets) {
-                if (loadBucket(key) is Either.Left) break
+            if (eagerMonths == 0) return@withLock
+
+            var requestsRemaining = MAX_INITIAL_BUCKET_REQUESTS
+            var nonEmptyMonths = 0
+            val attempted = mutableSetOf<String>()
+            for (bucket in _buckets.value) {
+                val key = bucket.timeBucket
+                val cached = freshCachedAssets(key)
+                if (cached == null && requestsRemaining == 0) {
+                    _initialSearchPending.value = nonEmptyMonths == 0 && _error.value == null
+                    break
+                }
+                val result = if (cached != null) {
+                    Either.Right(cached)
+                } else {
+                    requestsRemaining--
+                    attempted.add(key)
+                    loadBucket(key)
+                }
+                when (result) {
+                    is Either.Left -> return@withLock // An error is not an empty month.
+                    is Either.Right -> if (result.value.isNotEmpty()) nonEmptyMonths++
+                }
+                if (nonEmptyMonths >= eagerMonths) break
             }
+
+            // Preserve retry support for a failed later month, within the same request budget.
+            val failed = _buckets.value.map { it.timeBucket }
+                .filter { failedBuckets.containsKey(it) && it !in attempted }
+            for (key in failed) {
+                if (requestsRemaining == 0) break
+                requestsRemaining--
+                if (loadBucket(key) is Either.Left) {
+                    _initialSearchPending.value = false
+                    break
+                }
+            }
+        } catch (exception: CancellationException) {
+            cancelled = true
+            throw exception
         } finally {
             _isLoading.value = false
-            _initialLoadComplete.value = true
+            if (!cancelled) _initialLoadComplete.value = true
         }
+    }
+
+    /** Explicit user action to check the next bounded batch, preserving checked empty months. */
+    suspend fun continueInitialLoad() = loadBucketList()
+
+    private fun freshCachedAssets(timeBucket: String): List<TimelineAsset>? = synchronized(stateLock) {
+        if (timeBucket in staleBuckets || failedBuckets.containsKey(timeBucket)) null else _bucketAssets.value[timeBucket]
+    }
+
+    /** Called while holding [stateLock], so a successful month cannot clear an index failure. */
+    private fun publishError() {
+        _error.value = indexError ?: failedBuckets.values.firstOrNull()
     }
 
     suspend fun loadMemories() {
@@ -206,35 +291,43 @@ class TimelineViewModel(
     }
 
     fun rememberSelectionByAssetId(assetId: String) {
-        val match = flatAssetIndex().firstOrNull { it.second.id == assetId } ?: return
-        rememberSelection(match.first, assetId)
+        val dayKey = assetFocusIndex.dayByAsset[assetId] ?: return
+        rememberSelection(dayKey, assetId)
     }
 
     /**
      * Loads a month's assets if not cached. Concurrent callers for the same bucket share one fetch.
      */
     suspend fun loadBucket(timeBucket: String): Either<String, List<TimelineAsset>> {
-        _bucketAssets.value[timeBucket]?.let { return Either.Right(it) }
-
-        val deferred = inFlight.computeIfAbsent(timeBucket) {
-            viewModelScope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
-                try {
-                    safeFetch { fetchBucket(timeBucket) }.also { result ->
-                        result.fold(
-                            { message ->
-                                failedBuckets.add(timeBucket)
-                                _error.value = message
-                            },
-                            { assets ->
-                                failedBuckets.remove(timeBucket)
-                                if (failedBuckets.isEmpty()) _error.value = null
-                                _bucketAssets.update { current -> current + (timeBucket to assets) }
-                                recomputeLayout()
+        val deferred = synchronized(stateLock) {
+            freshCachedAssets(timeBucket)?.let { return Either.Right(it) }
+            val request = BucketRequest(indexGeneration, timeBucket)
+            inFlight.computeIfAbsent(request) {
+                viewModelScope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                    try {
+                        val result = safeFetch { fetchBucket(timeBucket) }
+                        val accepted = synchronized(stateLock) {
+                            if (request.generation != indexGeneration) {
+                                false
+                            } else {
+                                result.fold(
+                                    { message -> failedBuckets[timeBucket] = message },
+                                    { assets ->
+                                        failedBuckets.remove(timeBucket)
+                                        staleBuckets.remove(timeBucket)
+                                        _bucketAssets.update { current -> current + (timeBucket to assets) }
+                                    }
+                                )
+                                publishError()
+                                true
                             }
-                        )
+                        }
+                        if (!accepted) throw CancellationException("Timeline index was refreshed")
+                        if (result is Either.Right) recomputeLayout()
+                        result
+                    } finally {
+                        inFlight.remove(request)
                     }
-                } finally {
-                    inFlight.remove(timeBucket)
                 }
             }
         }
@@ -268,8 +361,11 @@ class TimelineViewModel(
      */
     private suspend fun recomputeLayout() = layoutMutex.withLock {
         withContext(Dispatchers.Default) {
-            val loaded = _bucketAssets.value
-            val buckets = _buckets.value
+            val snapshot = synchronized(stateLock) {
+                Triple(indexGeneration, _bucketAssets.value, _buckets.value)
+            }
+            val loaded = snapshot.second
+            val buckets = snapshot.third
             val memories = _memories.value
             val width = contentWidthPx
             val height = rowHeightPx
@@ -277,11 +373,32 @@ class TimelineViewModel(
             val today = todayLabel
             val yesterday = yesterdayLabel
 
-            if (width <= 0) return@withContext
-
             val assets = buckets.flatMap { loaded[it.timeBucket].orEmpty() }
             val daysList = assets.toTimelineDays()
-            _days.value = daysList
+            val focusIndex = AssetFocusIndex(
+                dayByAsset = buildMap {
+                    daysList.forEach { day -> day.assets.forEach { put(it.id, day.dayKey) } }
+                },
+                bucketByAsset = buildMap {
+                    buckets.forEach { bucket ->
+                        loaded[bucket.timeBucket].orEmpty().forEach { put(it.id, bucket.timeBucket) }
+                    }
+                },
+                orderedAssets = buildList {
+                    daysList.forEach { day -> day.assets.forEach { add(day.dayKey to it) } }
+                }
+            )
+            if (width <= 0 || height <= 0) {
+                // Index changes must clear old rows even while the replacement view is unmeasured.
+                synchronized(stateLock) {
+                    if (snapshot.first == indexGeneration) {
+                        assetFocusIndex = focusIndex
+                        _days.value = daysList
+                        _layout.value = TimelineLayout(days = daysList)
+                    }
+                }
+                return@withContext
+            }
 
             val items = TimelineMosaicLayoutEngine.layout(
                 days = daysList,
@@ -307,39 +424,30 @@ class TimelineViewModel(
                 items
             }
 
-            _layout.value = TimelineLayout(itemsWithMemories, neighbors, daysList)
+            synchronized(stateLock) {
+                if (snapshot.first == indexGeneration) {
+                    assetFocusIndex = focusIndex
+                    _days.value = daysList
+                    _layout.value = TimelineLayout(itemsWithMemories, neighbors, daysList)
+                }
+            }
         }
     }
 
-    /**
-     * Prefetch the month for [dayKey] plus adjacent months. Debounced for rapid D-pad scrolling.
-     */
+    /** Ensure only the focused month is loaded; neighboring months require navigation. */
     fun prefetchAroundDay(dayKey: String) {
         Debouncer.debounce(PREFETCH_KEY, {
             if (!viewModelScope.isActive) return@debounce
-            viewModelScope.launch(Dispatchers.IO) {
-                val monthKey = monthBucketKey(LocalDate.parse(dayKey))
-                val list = _buckets.value
-                val resolved = resolveBucketKey(monthKey) ?: monthKey
-                val index = list.indexOfFirst { it.timeBucket == resolved }
-                if (index < 0) {
-                    loadBucket(resolved)
-                    return@launch
-                }
-                loadBucket(resolved)
-                // Dense months are fetched only on explicit navigation, not speculative focus.
-                if (list[index].count < MAX_PREFETCH_ASSETS) {
-                    list.getOrNull(index - 1)?.takeIf { it.count < MAX_PREFETCH_ASSETS }
-                        ?.let { loadBucket(it.timeBucket) }
-                    list.getOrNull(index + 1)?.takeIf { it.count < MAX_PREFETCH_ASSETS }
-                        ?.let { loadBucket(it.timeBucket) }
-                }
-            }
+            viewModelScope.launch(Dispatchers.IO) { loadFocusMonth(dayKey) }
         }, prefetchDebounceMs, TimeUnit.MILLISECONDS)
     }
 
-    fun flatAssetIndex(): List<Pair<String, TimelineAsset>> =
-        _days.value.flatMap { day -> day.assets.map { day.dayKey to it } }
+    internal suspend fun loadFocusMonth(dayKey: String) {
+        val monthKey = monthBucketKey(LocalDate.parse(dayKey))
+        loadBucket(resolveBucketKey(monthKey) ?: monthKey)
+    }
+
+    fun flatAssetIndex(): List<Pair<String, TimelineAsset>> = assetFocusIndex.orderedAssets
 
     /**
      * All assets from [bucketKey] and its immediate neighbors (one newer, one older).
@@ -460,13 +568,10 @@ class TimelineViewModel(
     }
 
     /**
-     * Immich UTC month bucket that owns [assetId], if that bucket is loaded.
+     * Server-provided month bucket that owns [assetId], if that bucket is loaded.
      * Preferred over local calendar month when syncing the scrubber.
      */
-    fun bucketKeyForAsset(assetId: String): String? =
-        _bucketAssets.value.entries.firstOrNull { (_, assets) ->
-            assets.any { it.id == assetId }
-        }?.key
+    fun bucketKeyForAsset(assetId: String): String? = assetFocusIndex.bucketByAsset[assetId]
 
     /**
      * Resolve an Immich bucket key for a scrubber/month token. Matches by calendar
@@ -488,9 +593,8 @@ class TimelineViewModel(
     /**
      * Newest local calendar day among assets already loaded for [timeBucket].
      *
-     * Immich month buckets use server/file UTC month boundaries, while our mosaic
-     * groups by photographer-local day — so UTC January often contains late December
-     * local days. Scrubber jumps must target a day that actually came from this bucket.
+     * Immich 3.3.5 groups buckets by photographer-local month. Still use a day actually
+     * returned for this bucket rather than assuming the first calendar day contains photos.
      */
     fun newestDayKeyForBucket(timeBucket: String): String? {
         val assets = _bucketAssets.value[timeBucket].orEmpty()
@@ -503,7 +607,7 @@ class TimelineViewModel(
     }
 
     companion object {
-        const val MAX_PREFETCH_ASSETS = 1000
+        const val MAX_INITIAL_BUCKET_REQUESTS = 6
         const val PREFETCH_KEY = "timeline-prefetch"
         const val PREFETCH_DEBOUNCE_MS = 300L
 

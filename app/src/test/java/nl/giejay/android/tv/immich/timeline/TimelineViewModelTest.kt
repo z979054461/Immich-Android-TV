@@ -1,7 +1,10 @@
 package nl.giejay.android.tv.immich.timeline
 
 import arrow.core.Either
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -18,12 +21,12 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.OffsetDateTime
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import java.time.YearMonth
 import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -433,48 +436,31 @@ class TimelineViewModelTest {
     }
 
     @Test
-    fun `prefetchAroundDay loads focus month plus neighbors`() = runTest {
-        val fetches = AtomicInteger(0)
-        // Debouncer + Dispatchers.IO are real threads; wait for the 3 neighbor fetches.
-        val fetchLatch = CountDownLatch(3)
+    fun `focus month demand load never requests its neighbors`() = runTest {
+        val fetched = mutableListOf<String>()
         val vm = TimelineViewModel(
-            fetchBuckets = {
-                Either.Right(
-                    listOf(
-                        TimeBucketSummary("2026-07-01", 1),
-                        TimeBucketSummary("2026-06-01", 1),
-                        TimeBucketSummary("2026-05-01", 1),
-                        TimeBucketSummary("2026-04-01", 1)
-                    )
-                )
-            },
+            fetchBuckets = { Either.Right(listOf(
+                TimeBucketSummary("2026-07-01", 1),
+                TimeBucketSummary("2026-06-01", 1),
+                TimeBucketSummary("2026-05-01", 1),
+                TimeBucketSummary("2026-04-01", 1)
+            )) },
             fetchBucket = { key ->
-                fetches.incrementAndGet()
-                try {
-                    Either.Right(listOf(asset("$key-a", createdAt = "${key.take(8)}15T12:00:00Z")))
-                } finally {
-                    fetchLatch.countDown()
-                }
+                fetched.add(key)
+                Either.Right(listOf(asset("$key-a", createdAt = "${key.take(8)}15T12:00:00Z")))
             },
             prefetchDebounceMs = 0
         )
         vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
-
-        // Do not eager-load; only populate bucket list.
         vm.loadBucketList(eagerMonths = 0)
-        advanceUntilIdle()
-        assertEquals(0, fetches.get())
+        assertTrue(fetched.isEmpty())
 
-        vm.prefetchAroundDay("2026-06-15")
-        // 2s was tight enough to flake on loaded/shared CI runners (real Debouncer + Dispatchers.IO
-        // threads, not virtual time) even though the fetches themselves are effectively instant.
-        assertTrue(fetchLatch.await(10, TimeUnit.SECONDS))
-        advanceUntilIdle()
+        // Exercise the debounced callback's demand loader without real timer/thread races.
+        vm.loadFocusMonth("2026-06-15")
+        vm.loadFocusMonth("2026-06-16")
 
-        assertTrue(vm.bucketAssets.value.containsKey("2026-06-01"))
-        assertTrue(vm.bucketAssets.value.containsKey("2026-07-01"))
-        assertTrue(vm.bucketAssets.value.containsKey("2026-05-01"))
-        assertTrue("2026-04-01" !in vm.bucketAssets.value)
+        assertEquals(listOf("2026-06-01"), fetched)
+        assertEquals(setOf("2026-06-01"), vm.bucketAssets.value.keys)
     }
 
     @Test
@@ -702,6 +688,355 @@ class TimelineViewModelTest {
         assertEquals(2, attempts.get())
         assertNull(vm.error.value)
         assertEquals("a", vm.bucketAssets.value["2026-07-01"]!!.single().id)
+    }
+
+
+    @Test
+    fun `startup skips an empty newest month and stops at the first month with photos`() = runTest {
+        val fetched = mutableListOf<String>()
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(
+                TimeBucketSummary("2026-07-01", 1),
+                TimeBucketSummary("2026-06-01", 1),
+                TimeBucketSummary("2026-05-01", 1)
+            )) },
+            fetchBucket = { key ->
+                fetched.add(key)
+                Either.Right(if (key == "2026-07-01") emptyList() else listOf(asset(key)))
+            }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+
+        vm.loadBucketList()
+
+        assertEquals(listOf("2026-07-01", "2026-06-01"), fetched)
+        assertEquals("2026-06-01", vm.days.value.single().assets.single().id)
+        assertFalse(vm.initialSearchPending.value)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `six empty months require explicit continuation without refetching the index or empty months`() = runTest {
+        val months = (0L..8L).map { YearMonth.of(2026, 12).minusMonths(it).atDay(1).toString() }
+        val fetched = mutableListOf<String>()
+        val indexFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                indexFetches.incrementAndGet()
+                Either.Right(months.map { TimeBucketSummary(it, 1) })
+            },
+            fetchBucket = { key ->
+                fetched.add(key)
+                Either.Right(if (key == months[6]) listOf(asset("first-photo")) else emptyList())
+            }
+        )
+
+        vm.loadBucketList()
+        advanceUntilIdle()
+        assertEquals(months.take(6), fetched)
+        assertTrue(vm.initialSearchPending.value)
+        assertTrue(vm.initialLoadComplete.value)
+        assertFalse(vm.isLoading.value)
+        assertNull(vm.error.value)
+
+        vm.continueInitialLoad()
+        assertEquals(months.take(7), fetched)
+        assertEquals(1, indexFetches.get())
+        assertFalse(vm.initialSearchPending.value)
+        assertEquals("first-photo", vm.bucketAssets.value[months[6]]!!.single().id)
+    }
+
+    @Test
+    fun `an entirely empty timeline is checked in bounded batches until exhausted`() = runTest {
+        val months = (0L..12L).map { YearMonth.of(2026, 12).minusMonths(it).atDay(1).toString() }
+        val fetched = mutableListOf<String>()
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(months.map { TimeBucketSummary(it, 1) }) },
+            fetchBucket = { key -> fetched.add(key); Either.Right(emptyList()) }
+        )
+
+        vm.loadBucketList()
+        assertEquals(6, fetched.size)
+        assertTrue(vm.initialSearchPending.value)
+        vm.continueInitialLoad()
+        assertEquals(12, fetched.size)
+        assertTrue(vm.initialSearchPending.value)
+        vm.continueInitialLoad()
+        assertEquals(months, fetched)
+        assertFalse(vm.initialSearchPending.value)
+        assertTrue(vm.bucketAssets.value.values.all { it.isEmpty() })
+        assertTrue(vm.layout.value.items.isEmpty())
+        assertNull(vm.error.value)
+        vm.continueInitialLoad()
+        assertEquals(13, fetched.size)
+    }
+
+    @Test
+    fun `an empty batch ending exactly at the last month does not offer continuation`() = runTest {
+        val months = (0L..5L).map { YearMonth.of(2026, 12).minusMonths(it).atDay(1).toString() }
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(months.map { TimeBucketSummary(it, 1) }) },
+            fetchBucket = { Either.Right(emptyList()) }
+        )
+        vm.loadBucketList()
+        assertEquals(6, vm.bucketAssets.value.size)
+        assertFalse(vm.initialSearchPending.value)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `month failures stop empty-month search and retry without being cached as empty`() = runTest {
+        val fetched = mutableListOf<String>()
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(
+                TimeBucketSummary("2026-07-01", 1),
+                TimeBucketSummary("2026-06-01", 1),
+                TimeBucketSummary("2026-05-01", 1)
+            )) },
+            fetchBucket = { key ->
+                fetched.add(key)
+                when {
+                    key == "2026-07-01" -> Either.Right(emptyList())
+                    attempts.incrementAndGet() == 1 -> Either.Left("403 denied")
+                    else -> Either.Right(listOf(asset("recovered")))
+                }
+            }
+        )
+
+        vm.loadBucketList()
+        assertEquals(listOf("2026-07-01", "2026-06-01"), fetched)
+        assertEquals("403 denied", vm.error.value)
+        assertFalse(vm.initialSearchPending.value)
+        assertFalse(vm.bucketAssets.value.containsKey("2026-06-01"))
+        vm.continueInitialLoad()
+        assertEquals(listOf("2026-07-01", "2026-06-01", "2026-06-01"), fetched)
+        assertNull(vm.error.value)
+        assertEquals("recovered", vm.bucketAssets.value["2026-06-01"]!!.single().id)
+    }
+
+    @Test
+    fun `zero eager months fetches only the index even when all indexed months could be empty`() = runTest {
+        val monthFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = { monthFetches.incrementAndGet(); Either.Right(emptyList()) }
+        )
+        vm.loadBucketList(eagerMonths = 0)
+        vm.loadBucketList(eagerMonths = 0, refresh = true)
+        assertEquals(0, monthFetches.get())
+        assertFalse(vm.initialSearchPending.value)
+    }
+
+    @Test
+    fun `refresh fetches a cached month again and replaces its photos`() = runTest {
+        val indexFetches = AtomicInteger(0)
+        val monthFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                indexFetches.incrementAndGet()
+                Either.Right(listOf(TimeBucketSummary("2026-07-01", 1)))
+            },
+            fetchBucket = { Either.Right(listOf(asset("photo-${monthFetches.incrementAndGet()}"))) }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        vm.loadBucketList()
+        assertEquals("photo-1", vm.days.value.single().assets.single().id)
+
+        vm.loadBucketList(refresh = true)
+
+        assertEquals(2, indexFetches.get())
+        assertEquals(2, monthFetches.get())
+        assertEquals("photo-2", vm.days.value.single().assets.single().id)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `refresh with an empty index clears old photos and layout even before remeasurement`() = runTest {
+        val indexFetches = AtomicInteger(0)
+        val monthFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                Either.Right(if (indexFetches.incrementAndGet() == 1)
+                    listOf(TimeBucketSummary("2026-07-01", 1)) else emptyList())
+            },
+            fetchBucket = { monthFetches.incrementAndGet(); Either.Right(listOf(asset("removed"))) }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        vm.loadBucketList()
+        assertTrue(vm.layout.value.items.isNotEmpty())
+        vm.setLayoutConfig(0, 200, 10, "Today", "Yesterday")
+
+        vm.loadBucketList(refresh = true)
+
+        assertTrue(vm.buckets.value.isEmpty())
+        assertTrue(vm.bucketAssets.value.isEmpty())
+        assertTrue(vm.days.value.isEmpty())
+        assertTrue(vm.layout.value.items.isEmpty())
+        assertEquals(1, monthFetches.get())
+        assertFalse(vm.initialSearchPending.value)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `failed month refresh preserves current-index photos and remains retryable`() = runTest {
+        val attempts = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = {
+                when (attempts.incrementAndGet()) {
+                    1 -> Either.Right(listOf(asset("old")))
+                    2 -> Either.Left("403 denied")
+                    else -> Either.Right(listOf(asset("new")))
+                }
+            }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        vm.loadBucketList()
+        vm.loadBucketList(refresh = true)
+        assertEquals("old", vm.days.value.single().assets.single().id)
+        assertEquals("403 denied", vm.error.value)
+        assertFalse(vm.initialSearchPending.value)
+        assertFalse(vm.isLoading.value)
+
+        vm.continueInitialLoad()
+        assertEquals(3, attempts.get())
+        assertEquals("new", vm.days.value.single().assets.single().id)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `a later successful month cannot conceal a failed index refresh`() = runTest {
+        val indexFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                if (indexFetches.incrementAndGet() == 2) Either.Left("404 index failed")
+                else Either.Right(listOf(
+                    TimeBucketSummary("2026-07-01", 1), TimeBucketSummary("2026-06-01", 1)
+                ))
+            },
+            fetchBucket = { Either.Right(listOf(asset(it))) }
+        )
+        vm.loadBucketList()
+        vm.loadBucketList(refresh = true)
+        vm.loadBucket("2026-06-01")
+        assertEquals("404 index failed", vm.error.value)
+        assertFalse(vm.initialSearchPending.value)
+        vm.continueInitialLoad()
+        assertEquals(3, indexFetches.get())
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `refresh cannot be overwritten by an older in-flight month response`() = runTest {
+        val olderStarted = CompletableDeferred<Unit>()
+        val olderResponse = CompletableDeferred<List<TimelineAsset>>()
+        val indexFetches = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                Either.Right(if (indexFetches.incrementAndGet() == 1) listOf(
+                    TimeBucketSummary("2026-07-01", 1), TimeBucketSummary("2026-06-01", 1)
+                ) else listOf(TimeBucketSummary("2026-07-01", 1)))
+            },
+            fetchBucket = { key ->
+                if (key == "2026-06-01") {
+                    olderStarted.complete(Unit)
+                    // Emulate a response source that does not promptly honor cancellation.
+                    Either.Right(withContext(NonCancellable) { olderResponse.await() })
+                } else Either.Right(listOf(asset("current")))
+            }
+        )
+        vm.setLayoutConfig(1000, 200, 10, "Today", "Yesterday")
+        vm.loadBucketList()
+        val pending = async { vm.loadBucket("2026-06-01") }
+        olderStarted.await()
+        vm.loadBucketList(refresh = true)
+        olderResponse.complete(listOf(asset("superseded")))
+        assertTrue(runCatching { pending.await() }.exceptionOrNull() is CancellationException)
+        assertFalse(vm.bucketAssets.value.containsKey("2026-06-01"))
+        assertEquals("current", vm.days.value.single().assets.single().id)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `cancelled initial fetch is not reported as a completed empty timeline`() = runTest {
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 1))) },
+            fetchBucket = { throw CancellationException("Synthetic cancellation") }
+        )
+        assertTrue(runCatching { vm.loadBucketList() }.exceptionOrNull() is CancellationException)
+        assertFalse(vm.initialLoadComplete.value)
+        assertFalse(vm.initialSearchPending.value)
+        assertFalse(vm.isLoading.value)
+        assertTrue(vm.bucketAssets.value.isEmpty())
+        assertNull(vm.error.value)
+    }
+
+
+    @Test
+    fun `focus indexes work before layout measurement and reuse one ordered snapshot`() = runTest {
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(
+                TimeBucketSummary("2026-07-01", 1), TimeBucketSummary("2026-06-01", 1)
+            )) },
+            fetchBucket = { key -> Either.Right(listOf(if (key == "2026-07-01")
+                asset("july", "2026-07-01T23:30:00Z", localOffsetHours = 5.5)
+                else asset("june", "2026-06-15T10:00:00Z"))) }
+        )
+        vm.loadBucketList(eagerMonths = 2)
+        assertEquals("2026-07-01", vm.bucketKeyForAsset("july"))
+        assertEquals("2026-06-01", vm.bucketKeyForAsset("june"))
+        vm.rememberSelectionByAssetId("july")
+        assertEquals("2026-07-02", vm.lastSelectedDayKey)
+        assertEquals("july", vm.lastSelectedAssetId)
+        vm.rememberSelectionByAssetId("june")
+        assertEquals("2026-06-15", vm.lastSelectedDayKey)
+        assertSame(vm.flatAssetIndex(), vm.flatAssetIndex())
+        assertEquals(listOf("july", "june"), vm.flatAssetIndex().map { it.second.id })
+    }
+
+    @Test
+    fun `refresh replaces focus indexes and removes lookup entries for removed assets`() = runTest {
+        val requests = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(listOf(TimeBucketSummary("2026-07-01", 2))) },
+            fetchBucket = {
+                Either.Right(if (requests.incrementAndGet() == 1) listOf(
+                    asset("removed", "2026-07-02T12:00:00Z"), asset("same", "2026-07-01T12:00:00Z")
+                ) else listOf(asset("same", "2026-07-03T12:00:00Z")))
+            }
+        )
+        vm.loadBucketList()
+        assertEquals("2026-07-01", vm.bucketKeyForAsset("removed"))
+        vm.rememberSelectionByAssetId("same")
+        assertEquals("2026-07-01", vm.lastSelectedDayKey)
+        vm.loadBucketList(refresh = true)
+        vm.rememberSelectionByAssetId("same")
+        assertEquals("2026-07-03", vm.lastSelectedDayKey)
+        assertNull(vm.bucketKeyForAsset("removed"))
+        assertEquals(listOf("same"), vm.flatAssetIndex().map { it.second.id })
+        vm.rememberSelectionByAssetId("removed")
+        assertEquals("same", vm.lastSelectedAssetId)
+    }
+
+    @Test
+    fun `an empty refreshed index clears all focus lookup snapshots`() = runTest {
+        val requests = AtomicInteger(0)
+        val vm = TimelineViewModel(
+            fetchBuckets = {
+                Either.Right(if (requests.incrementAndGet() == 1)
+                    listOf(TimeBucketSummary("2026-07-01", 1)) else emptyList())
+            },
+            fetchBucket = { Either.Right(listOf(asset("removed"))) }
+        )
+        vm.loadBucketList()
+        assertEquals("2026-07-01", vm.bucketKeyForAsset("removed"))
+        vm.loadBucketList(refresh = true)
+        assertNull(vm.bucketKeyForAsset("removed"))
+        assertTrue(vm.flatAssetIndex().isEmpty())
+        vm.rememberSelectionByAssetId("removed")
+        assertNull(vm.lastSelectedAssetId)
+        assertNull(vm.lastSelectedDayKey)
     }
 
 }

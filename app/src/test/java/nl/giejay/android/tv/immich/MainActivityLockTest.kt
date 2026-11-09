@@ -7,13 +7,14 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentFactory
 import androidx.leanback.app.BackgroundManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.FragmentNavigator
@@ -21,7 +22,9 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.test.core.app.ApplicationProvider
 import nl.giejay.android.tv.immich.api.ApiClientConfig
 import nl.giejay.android.tv.immich.auth.ProfileFragment
+import nl.giejay.android.tv.immich.auth.TvPinPad
 import nl.giejay.android.tv.immich.security.ProfileStore
+import nl.giejay.android.tv.immich.security.ProfileSummary
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_SET
 import nl.giejay.mediaslider.config.MediaSliderConfiguration
@@ -34,6 +37,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
+import org.mockito.kotlin.eq
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -194,51 +198,298 @@ class MainActivityLockTest {
         if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(descendants(view.getChildAt(index)))
     }
 
-    @Test fun cancellingPinDialogClearsInputAndDiscardsLateSuccessfulVerification() {
+    private fun seedPicker(pinLength: Int? = null) {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        val row = JSONObject().put("id", "test-id").put("name", "Test User")
+        if (pinLength != null) row.put("pinLength", pinLength)
         context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE).edit()
-            .putString("profiles_v1", JSONArray().put(JSONObject().put("id", "test-id").put("name", "Test User")).toString())
-            .commit()
-        val activity = launch()
-        val profile = host(activity).childFragmentManager.primaryNavigationFragment as ProfileFragment
-        descendants(profile.requireView()).filterIsInstance<Button>()
+            .putString("profiles_v1", JSONArray().put(row).toString()).commit()
+    }
+
+    private fun profile(activity: MainActivity) =
+        host(activity).childFragmentManager.primaryNavigationFragment as ProfileFragment
+
+    private fun openPin(activity: MainActivity): AlertDialog {
+        descendants(profile(activity).requireView()).filterIsInstance<Button>()
             .first { it.contentDescription == "Test User" }.performClick()
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
-        val input = descendants(dialog.window!!.decorView).filterIsInstance<EditText>().first()
-        input.setText("123456")
+        return ShadowAlertDialog.getLatestAlertDialog()
+    }
+
+    private fun pad(dialog: AlertDialog) = descendants(dialog.window!!.decorView).filterIsInstance<TvPinPad>().single()
+    private fun key(dialog: AlertDialog, tag: String) = dialog.window!!.decorView.findViewWithTag<Button>(tag)
+    private fun text(dialog: AlertDialog, tag: String) = dialog.window!!.decorView.findViewWithTag<TextView>(tag).text.toString()
+    private fun digits(dialog: AlertDialog, pin: String) { pin.forEach { key(dialog, "pin_digit_$it").performClick() } }
+    private fun assertCleared(dialog: AlertDialog) { assertFalse(text(dialog, "pin_masked").contains('●')) }
+
+    private fun waitForPinWork(fragment: ProfileFragment) {
+        val busy = ProfileFragment::class.java.getDeclaredField("busy").apply { isAccessible = true }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (busy.getBoolean(fragment) && System.nanoTime() < deadline) {
+            Thread.sleep(10)
+            ShadowLooper.idleMainLooper()
+        }
+        assertFalse("PIN work completed", busy.getBoolean(fragment))
+    }
+
+    private fun verifiedStore(pinLength: Int? = null): ProfileStore = Mockito.mock(ProfileStore::class.java).also { store ->
+        Mockito.`when`(store.profiles()).thenReturn(listOf(ProfileSummary("test-id", "Test User", pinLength)))
+        Mockito.`when`(store.unlock(eq("test-id"), eq("123456"), Mockito.anyLong(), Mockito.anyLong()))
+            .thenReturn(ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
+        setStore(store)
+    }
+
+    private fun openMigration(activity: MainActivity): AlertDialog {
+        val unlock = openPin(activity)
+        digits(unlock, "123456")
+        assertEquals(6, text(unlock, "pin_masked").count { it == '●' })
+        key(unlock, "pin_confirm").performClick()
+        waitForPinWork(profile(activity))
+        val migration = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotSame(unlock, migration)
+        assertFalse(unlock.isShowing)
+        assertTrue(migration.isShowing)
+        assertFalse(PreferenceManager.isLoggedId())
+        assertTrue(migration.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+        assertEquals(activity.getString(R.string.profiles_pin_migrate_choose), text(migration, "pin_instruction"))
+        return migration
+    }
+
+    private fun replaceHomeWithSyntheticScreen(activity: MainActivity) {
+        val manager = host(activity).childFragmentManager
+        val originalFactory = manager.fragmentFactory
+        val homeName = (host(activity).navController.graph.findNode(R.id.homeFragment) as FragmentNavigator.Destination).className
+        manager.fragmentFactory = object : FragmentFactory() {
+            override fun instantiate(classLoader: ClassLoader, className: String): Fragment =
+                if (className == homeName) SyntheticPhotoFragment() else originalFactory.instantiate(classLoader, className)
+        }
+    }
+
+    private fun enterNewPin(dialog: AlertDialog, pin: String = "0123", confirmation: String = pin) {
+        digits(dialog, pin)
+        assertEquals(dialog.context.getString(R.string.profiles_pin_migrate_confirm), text(dialog, "pin_instruction"))
+        assertCleared(dialog)
+        digits(dialog, confirmation)
+    }
+
+    @Test fun legacyPinNeverSubmitsTheFirstFourDigitsAndMigrationCanBeCancelled() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val wrong = openPin(activity)
+        digits(wrong, "1234")
+        Mockito.verify(store, Mockito.never()).unlock(Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong())
+        key(wrong, "pin_confirm").performClick()
+        waitForPinWork(profile(activity))
+        assertSame(wrong, ShadowAlertDialog.getLatestAlertDialog())
+        assertTrue(wrong.isShowing)
+        assertEquals(activity.getString(R.string.profiles_wrong_pin), text(wrong, "pin_status"))
+        wrong.cancel()
+        ShadowLooper.idleMainLooper()
+
+        repeat(2) {
+            val migration = openMigration(activity)
+            enterNewPin(migration, "1234", "4321")
+            assertEquals(activity.getString(R.string.profiles_pin_mismatch), text(migration, "pin_status"))
+            assertEquals(activity.getString(R.string.profiles_pin_migrate_choose), text(migration, "pin_instruction"))
+            assertFalse(PreferenceManager.isLoggedId())
+            digits(migration, "0123")
+            digits(migration, "01")
+            if (it == 0) migration.getButton(AlertDialog.BUTTON_NEGATIVE).performClick() else migration.cancel()
+            ShadowLooper.idleMainLooper()
+            assertFalse(migration.isShowing)
+            assertCleared(migration)
+            assertLockedPicker(activity)
+        }
+        Mockito.verify(store, Mockito.never()).changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong())
+        Mockito.verify(store, Mockito.times(2)).unlock(eq("test-id"), eq("123456"), Mockito.anyLong(), Mockito.anyLong())
+    }
+
+    @Test fun failedMigrationStaysLockedAndAllowsRetryWithFreshTwoStageInput() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val migration = openMigration(activity)
+        Mockito.`when`(store.changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong()))
+            .thenThrow(IllegalStateException("Synthetic unavailable storage"))
+        repeat(2) {
+            enterNewPin(migration)
+            waitForPinWork(profile(activity))
+            assertTrue(migration.isShowing)
+            assertTrue(key(migration, "pin_digit_1").isEnabled)
+            assertTrue(migration.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled)
+            assertCleared(migration)
+            assertEquals(activity.getString(R.string.profiles_pin_save_failed), text(migration, "pin_status"))
+            assertEquals(activity.getString(R.string.profiles_pin_migrate_choose), text(migration, "pin_instruction"))
+            assertLockedPicker(activity)
+        }
+        Mockito.verify(store, Mockito.times(2)).changePin(eq("test-id"), eq("123456"), eq("0123"), Mockito.anyLong(), Mockito.anyLong())
+        migration.cancel()
+        ShadowLooper.idleMainLooper()
+        assertCleared(openPin(activity))
+    }
+
+    @Test fun backgroundDuringMigrationClearsDigitsAndRequiresFullUnlockAgain() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val migration = openMigration(activity)
+        digits(migration, "0123")
+        digits(migration, "01")
+        controller!!.pause().stop()
+        ShadowLooper.idleMainLooper()
+        assertFalse(migration.isShowing)
+        assertCleared(migration)
+        assertFalse(PreferenceManager.isLoggedId())
+        controller!!.restart().start().resume().visible()
+        assertLockedPicker(activity)
+        Mockito.verify(store, Mockito.never()).changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong())
+        assertCleared(openPin(activity))
+    }
+
+    @Test fun recreationCannotRestoreMigrationAuthorizationOrEnteredPins() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val migration = openMigration(activity)
+        digits(migration, "0123")
+        digits(migration, "01")
+        assertFalse(pad(migration).isSaveEnabled)
+        val state = Bundle()
+        controller!!.saveInstanceState(state).pause().stop().destroy()
+        controller = null
+        ShadowLooper.idleMainLooper()
+        assertFalse(migration.isShowing)
+        assertCleared(migration)
+        val recreated = launch(state)
+        assertLockedPicker(recreated)
+        assertCleared(openPin(recreated))
+        Mockito.verify(store, Mockito.never()).changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong())
+    }
+
+    @Test fun repeatedMigrationSubmitCannotChangeTwiceOrUnlockAfterBackground() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val migration = openMigration(activity)
+        val fragment = profile(activity)
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
-        val store = Mockito.mock(ProfileStore::class.java)
+        Mockito.`when`(store.changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong()))
+            .thenAnswer {
+                entered.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+                ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false)
+            }
+        try {
+            enterNewPin(migration)
+            assertEquals(activity.getString(R.string.profiles_pin_saving), text(migration, "pin_status"))
+            assertFalse(key(migration, "pin_digit_1").isEnabled)
+            assertFalse(migration.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled)
+            ShadowLooper.idleMainLooper()
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            digits(migration, "01230123")
+            key(migration, "pin_confirm").performClick()
+            controller!!.pause().stop()
+            release.countDown()
+            waitForPinWork(fragment)
+            assertFalse(migration.isShowing)
+            assertFalse(PreferenceManager.isLoggedId())
+            controller!!.restart().start().resume().visible()
+            assertLockedPicker(activity)
+            Mockito.verify(store, Mockito.times(1)).changePin(eq("test-id"), eq("123456"), eq("0123"), Mockito.anyLong(), Mockito.anyLong())
+        } finally { release.countDown() }
+    }
+
+    @Test fun savedMigrationUnlocksOnlyAfterCommitAndNextLaunchStillNeedsPin() {
+        seedPicker()
+        val activity = launch()
+        val store = verifiedStore()
+        val nav = host(activity).navController
+        replaceHomeWithSyntheticScreen(activity)
+        val migration = openMigration(activity)
+        val fragment = profile(activity)
+        Mockito.`when`(store.changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong()))
+            .thenReturn(ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false))
+        enterNewPin(migration)
+        waitForPinWork(fragment)
+        settle(activity)
+        assertFalse(migration.isShowing)
+        assertTrue(PreferenceManager.isLoggedId())
+        assertEquals(R.id.homeFragment, nav.currentDestination?.id)
+        assertCleared(migration)
+        controller!!.pause().stop().restart().start().resume().visible()
+        assertLockedPicker(activity)
+    }
+
+    @Test fun fourthDigitSubmitsOnceShowsImmediateFeedbackAndUnlocksWithoutAnotherClick() {
+        seedPicker(pinLength = 4)
+        val activity = launch()
+        val store = verifiedStore(pinLength = 4)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        Mockito.`when`(store.unlock(eq("test-id"), eq("0123"), Mockito.anyLong(), Mockito.anyLong()))
+            .thenAnswer {
+                entered.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+                ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false)
+            }
+        replaceHomeWithSyntheticScreen(activity)
+        val fragment = profile(activity)
+        val unlock = openPin(activity)
+        try {
+            digits(unlock, "012")
+            Mockito.verify(store, Mockito.never()).unlock(eq("test-id"), eq("0123"), Mockito.anyLong(), Mockito.anyLong())
+            digits(unlock, "3")
+            // No looper advancement is needed for feedback: it is set before IO starts.
+            assertEquals(activity.getString(R.string.profiles_pin_verifying), text(unlock, "pin_status"))
+            assertFalse(key(unlock, "pin_digit_0").isEnabled)
+            assertCleared(unlock)
+            digits(unlock, "0123")
+            pad(unlock).handleKey(KeyEvent.KEYCODE_4, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_4))
+            ShadowLooper.idleMainLooper()
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            assertFalse(PreferenceManager.isLoggedId())
+            release.countDown()
+            waitForPinWork(fragment)
+            settle(activity)
+            assertTrue(PreferenceManager.isLoggedId())
+            assertFalse(unlock.isShowing)
+            assertSame(unlock, ShadowAlertDialog.getLatestAlertDialog())
+            assertEquals(R.id.homeFragment, host(activity).navController.currentDestination?.id)
+            Mockito.verify(store, Mockito.times(1)).unlock(eq("test-id"), eq("0123"), Mockito.anyLong(), Mockito.anyLong())
+            Mockito.verify(store, Mockito.never()).changePin(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong())
+        } finally { release.countDown() }
+    }
+
+    @Test fun cancellingPinDialogClearsInputAndDiscardsLateSuccessfulVerification() {
+        seedPicker(pinLength = 4)
+        val activity = launch()
+        val fragment = profile(activity)
+        val store = verifiedStore(pinLength = 4)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
         Mockito.`when`(store.unlock(Mockito.anyString(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong()))
             .thenAnswer {
                 entered.countDown()
                 check(release.await(5, TimeUnit.SECONDS))
                 ApiClientConfig("https://synthetic.invalid", "synthetic-test-key", false, false)
             }
-        setStore(store)
+        val unlock = openPin(activity)
+        assertTrue(unlock.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
         try {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            digits(unlock, "0123")
             ShadowLooper.idleMainLooper()
-            assertTrue("Verification should have started", entered.await(5, TimeUnit.SECONDS))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            unlock.getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
             ShadowLooper.idleMainLooper()
-            assertFalse(dialog.isShowing)
-            assertEquals("", input.text.toString())
+            assertFalse(unlock.isShowing)
+            assertCleared(unlock)
             release.countDown()
-            val busy = ProfileFragment::class.java.getDeclaredField("busy").apply { isAccessible = true }
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (busy.getBoolean(profile) && System.nanoTime() < deadline) {
-                Thread.sleep(10)
-                ShadowLooper.idleMainLooper()
-            }
-            assertFalse("Late verification completed", busy.getBoolean(profile))
+            waitForPinWork(fragment)
             assertLockedPicker(activity)
-        } finally {
-            release.countDown()
-            setStore(originalStore)
-        }
+        } finally { release.countDown() }
     }
+
 }
 
 /** A harmless stand-in lets the real NavHost save an authenticated destination without HTTP. */

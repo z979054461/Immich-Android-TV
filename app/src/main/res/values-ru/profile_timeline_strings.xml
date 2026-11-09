@@ -4,10 +4,10 @@
   <string name="profiles_intro">Выберите профиль. Локальный PIN-код защищает фотографии при каждом открытии приложения.</string>
   <string name="profiles_add">+ Добавить аккаунт Immich</string>
   <string name="profiles_name">Название профиля (1–40 символов)</string>
-  <string name="profiles_new_pin">Создайте PIN-код из 6–12 цифр</string>
+  <string name="profiles_new_pin">Создайте PIN-код из 4 цифр</string>
   <string name="profiles_confirm_pin">Подтвердите PIN-код</string>
-  <string name="profiles_pin_invalid">Введите одинаковый PIN-код из 6–12 цифр дважды.</string>
-  <string name="profiles_enter_pin">Введите локальный PIN-код</string>
+  <string name="profiles_pin_invalid">Введите одинаковый PIN-код ровно из 4 цифр (0–9) дважды.</string>
+  <string name="profiles_enter_pin">Введите PIN-код из 4 цифр. Для старого профиля сначала введите прежний код целиком, из 6–12 цифр.</string>
   <string name="profiles_unlock">Разблокировать</string>
   <string name="profiles_wrong_pin">Не удалось разблокировать. Проверьте PIN-код. После 5 попыток подождите 30 секунд; дальнейшие попытки увеличивают ожидание до 5 минут.</string>
   <string name="profiles_switch">Заблокировать / сменить профиль</string>
@@ -22,4 +22,19 @@
   <string name="timeline_load_error">Не удалось загрузить хронологию. Проверьте подключение, сертификат и версию Immich, затем повторите попытку. Загруженные фотографии сохранены.</string>
   <string name="timeline_endpoint_error">Сервер вернул ошибку 404. Проверьте адрес, маршрутизацию API обратного прокси и поддержку периодов хронологии в этой версии Immich.</string>
   <string name="timeline_version_error">Сервер отклонил запрос хронологии (400). Проверьте совместимость с вашей версией Immich.</string>
+    <string name="profiles_migrate_pin">Прежний PIN-код проверен. Создайте и подтвердите новый код из 4 цифр. При отмене прежний код сохранится, а профиль останется заблокированным.</string>
+    <string name="profiles_save_pin">Сохранить и разблокировать</string>
+    <string name="profiles_pin_save_failed">Не удалось сохранить новый код. Повторите попытку или отмените и введите текущий PIN-код.</string>
+    <string name="timeline_continue">Проверить предыдущие месяцы</string>
+    <string name="timeline_more_months">В проверенных месяцах фотографий нет. Более ранние месяцы ещё не проверены.</string>
+    <string name="profiles_pin_delete">Удалить последнюю цифру</string>
+    <string name="profiles_pin_confirm_action">Подтвердить PIN-код</string>
+    <string name="profiles_pin_digit_count">Введено цифр: %1$d</string>
+    <string name="profiles_pin_auto_prompt">Введите 4 цифры. Проверка начнётся автоматически.</string>
+    <string name="profiles_pin_legacy_prompt">Введите текущий PIN-код целиком, затем выберите ✓. Старые коды содержат 6–12 цифр.</string>
+    <string name="profiles_pin_verifying">Проверка PIN-кода…</string>
+    <string name="profiles_pin_saving">Сохранение PIN-кода…</string>
+    <string name="profiles_pin_migrate_choose">Шаг 1 из 2: прежний код проверен. Выберите 4 новые цифры. Отмена сохранит старый код и оставит профиль заблокированным.</string>
+    <string name="profiles_pin_migrate_confirm">Шаг 2 из 2: повторите те же 4 цифры для сохранения и разблокировки.</string>
+    <string name="profiles_pin_mismatch">Коды не совпадают. Задайте новый код из 4 цифр ещё раз.</string>
 </resources>
