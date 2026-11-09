@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_title">App updates</string>
+    <string name="update_manual">Updates are checked only when you select Check for updates.</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_current">No newer private version is available.</string>
+    <string name="update_available">Version %1$s is available.</string>
+    <string name="update_download">Download</string>
+    <string name="update_downloading">Downloading and verifying…</string>
+    <string name="update_ready">Version %1$s: Ready to install. If permission is requested, return here and select Install again. Installation never starts automatically.</string>
+    <string name="update_install">Install</string>
+    <string name="update_verifying">Verifying installation…</string>
+    <string name="update_failed">Could not complete the update. Check your connection or try again later.</string>
+    <string name="update_permission_failed">Could not open installation permission settings.</string>
+    <string name="update_install_failed">Could not open the system installer.</string>
+</resources>

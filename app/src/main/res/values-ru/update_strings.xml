@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_title">Обновление приложения</string>
+    <string name="update_manual">Проверка выполняется только после выбора «Проверить».</string>
+    <string name="update_check">Проверить</string>
+    <string name="update_checking">Проверка обновлений…</string>
+    <string name="update_current">Более новой частной версии нет.</string>
+    <string name="update_available">Доступна версия %1$s.</string>
+    <string name="update_download">Скачать</string>
+    <string name="update_downloading">Загрузка и проверка…</string>
+    <string name="update_ready">Версия %1$s: Готово к установке. Если запрошено разрешение, вернитесь сюда и снова выберите «Установить». Установка не начнётся автоматически.</string>
+    <string name="update_install">Установить</string>
+    <string name="update_verifying">Проверка файла установки…</string>
+    <string name="update_failed">Не удалось обновить приложение. Проверьте подключение или повторите позже.</string>
+    <string name="update_permission_failed">Не удалось открыть настройки разрешения на установку.</string>
+    <string name="update_install_failed">Не удалось открыть системный установщик.</string>
+</resources>

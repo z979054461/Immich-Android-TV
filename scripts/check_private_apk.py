@@ -11,6 +11,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZipFile
 
+from check_apksig_dex import inspect_apksig_dex
+
 
 def require(condition, message):
     if not condition:
@@ -42,6 +44,18 @@ def inspect_manifest(path):
                     for token in ('READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE',
                                   'MANAGE_EXTERNAL_STORAGE', 'READ_MEDIA_', 'CAMERA', 'RECORD_AUDIO')),
             'Unexpected sensitive permission')
+    require('android.permission.REQUEST_INSTALL_PACKAGES' in permissions,
+            'Missing explicit manual installer permission')
+    update_providers = [node for node in app.findall('provider')
+                        if node.get(namespace + 'authorities') == root.get('package') + '.updates']
+    require(len(update_providers) == 1, 'Missing or duplicate update provider')
+    provider = update_providers[0]
+    require(provider.get(namespace + 'exported') == 'false' and
+            provider.get(namespace + 'grantUriPermissions') == 'true',
+            'Update provider must be nonexported with scoped URI grants')
+    require(any(node.get(namespace + 'name') == 'android.support.FILE_PROVIDER_PATHS' and
+                bool(node.get(namespace + 'resource')) for node in provider.findall('meta-data')),
+            'Update provider requires a scoped paths resource')
     receiver_permission = root.get('package') + '.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
     require(receiver_permission in permissions, 'Missing non-exported receiver permission request')
     declarations = [node for node in root.findall('permission')
@@ -58,7 +72,8 @@ def inspect_manifest(path):
     # compare only fields whose decoded meanings must match literally.
     return (root.get('package'), app.get(namespace + 'allowBackup'),
             app.get(namespace + 'debuggable', 'false'), app.get(namespace + 'fullBackupContent'),
-            permissions, receiver_permission, signature_only)
+            permissions, receiver_permission, signature_only, provider.get(namespace + 'exported'),
+            provider.get(namespace + 'grantUriPermissions'))
 
 
 def main():
@@ -75,13 +90,15 @@ def main():
                 'APK manifest differs from merged manifest privacy fields/permissions')
     with ZipFile(args.apk) as archive:
         require('AndroidManifest.xml' in archive.namelist(), 'APK contains no Android manifest')
-        dex = b''.join(archive.read(name) for name in archive.namelist()
-                       if re.fullmatch(r'classes\d*\.dex', name))
+        dex_files = [archive.read(name) for name in archive.namelist()
+                     if re.fullmatch(r'classes\d*\.dex', name)]
+        dex = b''.join(dex_files)
         require(bool(dex), 'No DEX in APK')
+        inspect_apksig_dex(dex_files)
         for forbidden in [b'Lcom/google/firebase/', b'Lcom/android/billingclient/', b'immich.giejay.nl',
                           b'?apiKey=', b'&apiKey=', b'AuthenticationClient;', b'AuthByPhoneFragment;']:
             require(forbidden not in dex, 'Prohibited runtime signature: ' + forbidden.decode())
-    print('PASS: APK runtime signatures and APK-decoded manifest application ID, privacy flags and permissions')
+    print('PASS: APK apksig reflection structures, runtime signatures and APK-decoded manifest application ID, privacy flags and permissions')
     print('Not a claim of signature validity, device installation, packet capture or real Immich compatibility')
 
 

@@ -40,3 +40,8 @@
 # by fully-qualified name from nav_graph.xml's argType -- all of this breaks silently under R8
 # renaming/shrinking without keeping the whole package intact.
 -keep class nl.giejay.android.tv.immich.shared.prefs.** { *; }
+# apksig parses ASN.1/PKCS7 using annotations, generic field signatures and reflective
+# model construction. The artifact does not supply consumer rules. Preserve the entire
+# verifier conservatively: release verification must not depend on shrinker inference.
+-keep class com.android.apksig.** { *; }
+-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations,AnnotationDefault,Signature,InnerClasses,EnclosingMethod

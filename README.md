@@ -1,6 +1,6 @@
 # Immich TV Private
 
-面向自托管 Immich 的 Android TV 私用分支。基于 [giejay/Immich-Android-TV 6.2.0](https://github.com/giejay/Immich-Android-TV/tree/6.2.0)，基线提交 `90f879c3eba843c9d976505fc463d236d846bd91`。上游该标签的 Gradle 版本字段仍是 6.1.0/code147；本分支开发候选版本为 `1.2.0-private`，包名 `io.github.z979054461.immichtv`，可与原版共存，不覆盖原版。
+面向自托管 Immich 的 Android TV 私用分支。基于 [giejay/Immich-Android-TV 6.2.0](https://github.com/giejay/Immich-Android-TV/tree/6.2.0)，基线提交 `90f879c3eba843c9d976505fc463d236d846bd91`。上游该标签的 Gradle 版本字段仍是 6.1.0/code147；本分支开发候选版本为 `1.3.0-private`，包名 `io.github.z979054461.immichtv`，可与原版共存，不覆盖原版。
 
 ## 运行时隐私边界
 
@@ -26,7 +26,7 @@
 - 宽限仅保存在本次进程内，以单调时钟计时；到期、进程/电视重启或 Activity 重建后重新输入 PIN。设置提供“立即锁定”。宽限期间，同一电视的其他使用者也能返回原账户；不希望这样可设为立即锁定。
 - API Key 继续由 AndroidKeyStore AES-GCM 加密。PIN 不以明文保存，使用随机 16 字节 salt、600,000 次 PBKDF2-HMAC-SHA1、256 位摘要和恒定时间比较；SHA1 PRF 为兼容 Android 7/API24。第 5 次尝试后等待 30 秒，连续尝试递增至最多 5 分钟，计数与冷却时间跨进程保存。
 - 即使仍在宽限内，离开应用也立即隐藏页面、停止媒体、清空活动网络会话和元数据状态。正常从电视桌面返回且宽限有效时，只恢复同一档案并创建全新网络会话；旧请求/响应和旧导航图不能复活。锁定或切换账户立即撤销宽限，系统最近任务截图被屏蔽。
-- 共享 Glide 持久/内存缓存仍禁用；1.2 候选另有账户和会话隔离的限额缩略图缓存，详见下方。照片后台系统屏保会立即硬锁并退出，即使尚在宽限内；解锁后的前台屏保预览仍可用。
+- 共享 Glide 持久/内存缓存仍禁用；1.2 起另有账户和会话隔离的限额缩略图缓存，详见下方。照片后台系统屏保会立即硬锁并退出，即使尚在宽限内；解锁后的前台屏保预览仍可用。
 - 从 1.0.0 升级需重新填写服务器和 API Key 并设置 PIN，不会将已有免 PIN 凭据交给任何首次打开电视的人绑定。服务器照片不受影响。
 - 忘记 PIN 可删除该电视上的本地档案，再用 API Key 添加；不会删除服务器账户或照片。当地用户能够删除本地档案，但无法因此解锁原档案。
 
@@ -57,9 +57,9 @@
 
 连接后如某个页面提示权限不足，应只补充该页面需要的权限，不授予 `all`。
 
-## 1.2 开发候选：诊断、组合筛选与缩略图缓存
+## 1.2 功能：诊断、组合筛选与缩略图缓存
 
-本节为当前开发分支已集成、等待本版本完整 CI 与签名验收的功能，不代表已发布。1.1.1 已验收候选固定在 [release/private-1.1.1](https://github.com/z979054461/Immich-Android-TV/tree/release/private-1.1.1)。
+本节功能已通过 1.2 的 CI 与签名验收，继续包含在 1.3 候选中；不代表 1.3 已发布或已在电视实测。1.1.1 已发布版本固定在 [release/private-1.1.1](https://github.com/z979054461/Immich-Android-TV/tree/release/private-1.1.1)。
 
 ### 手动连接诊断
 
@@ -118,11 +118,11 @@
 - [x] 按月滚动按需读取，取消邻月投机预取；密集日期布局和焦点索引优化。
 - [ ] 电视实机验证：覆盖升级、旧 PIN 迁移、NAS 3.3.5 时间线及大型月份。
 
-### 已选定的新增功能（1.2 候选待验收，未发布）
+### 已选定的新增功能（1.3 集成候选，未发布）
 
 - [x] **连接诊断代码**：手动、脱敏、有限响应体；3.3.5 权限探针和取消/会话保护，等待本版本 CI。
 - [x] **日期与人物组合筛选代码**：100 项 cursor 分页、组合规则、电视时区、错误重试和遥控器焦点，等待本版本 CI。
-- [ ] **应用内检查更新**：只安装本分支同包名、同签名且版本递增的 APK；由用户主动检查，并保留 Android 安装确认。它将需要一个明确披露且与照片/密钥请求隔离的更新来源，不把 GitHub 更新请求伪装成“只访问自己的服务器”。
+- [x] **手动应用更新（待本候选 CI/设备验收）**：设置中主动检查、下载、安装，保留 Android 系统安装确认，详见下节。
 - [x] **账户隔离的限额缩略图缓存代码**：会话密文、总配额、清空入口及撤销/清理代次保护；461 项本地真实文件断言已通过，Android 集成等待本版本 CI。
 
 ### 原上游 TODO（待选择，不自动纳入上述开发）
@@ -139,6 +139,8 @@
 
 需要 JDK21、Android SDK37 和可访问官方构建依赖的网络。无需 Firebase 配置、演示密钥或作者服务配置。
 
+单元测试还需公开的固定 [1.1.1 APK 签名样本](https://github.com/z979054461/Immich-Android-TV/releases/download/v1.1.1-private/ImmichTV-Private-1.1.1.apk)：下载到仓库外，SHA-256 必须为 `21153d9c46bf7865f3337af7e74a067f0b5bd7ff462ec53e1e693894d88630a3`，并把其绝对路径设置为环境变量 `IMMICH_UPDATE_TEST_APK`。无需私钥。缺少样本或摘要不符会明确失败，不能跳过签名测试。
+
 ```sh
 python3 scripts/check_private_runtime.py
 ./gradlew :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
@@ -148,10 +150,20 @@ python3 scripts/check_private_runtime.py
 
 有权限的维护者可在自己的安全构建环境配置 `RELEASE_KEYSTORE_PATH`、`RELEASE_KEYSTORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD` 后构建签名 release。不要在日志中输出这些值。CI 的持久 Secrets 为 `RELEASE_KEYSTORE_BASE64`、`RELEASE_KEYSTORE_PASSWORD`、`RELEASE_KEY_PASSWORD` 和公开证书指纹 `RELEASE_CERT_SHA256`；Java 会按指纹定位实际别名并验证私钥签名，不依赖 PKCS12 友好名。
 
-隐私回归测试包括真实本机回环 HTTP 服务器，验证 301/302/303/307/308 不跟随、跨域请求在 DNS 前拒绝、Key 只在单个请求头里、未配置时禁止联网。测试只用合成数据，不访问 NAS。静态检查不是抓包证明；最终 APK 仍需检查合并 Manifest、运行依赖和电视实机网络行为。
+隐私回归测试包括真实本机回环 HTTP 服务器，验证 301/302/303/307/308 不跟随、跨域请求在 DNS 前拒绝、Key 只在单个请求头里、未配置时禁止联网。网络测试只用合成数据，不访问 NAS；签名回归使用上述固定公开 APK，验证原件及篡改 DEX 后重新计算下载摘要仍被签名拒绝。静态检查不是抓包证明；最终 APK 仍需检查合并 Manifest、运行依赖和电视实机网络行为。
 
 ## 许可与来源
 
 本项目基于 [giejay/Immich-Android-TV 6.2.0](https://github.com/giejay/Immich-Android-TV/tree/6.2.0) 独立维护，保留 [GPLv3 LICENSE](LICENSE)。内置 mediaslider 保留其 [Apache-2.0 LICENSE](mediaslider/LICENSE.md) 与来源说明，所有原始源代码版权声明保持不变。
 
 分发 APK 时必须同时提供对应版本的完整源代码及构建说明，并遵守 GPLv3 与依赖许可。此为非官方个人分支，不是 Immich 官方电视客户端。
+
+## 手动应用更新的网络例外
+
+照片、视频及 Immich API 仍只访问所配置的自有 Immich。用户已批准的唯一独立更新来源是本分支的 GitHub Releases：手动“检查更新”访问 `api.github.com/repos/z979054461/Immich-Android-TV/releases`；手动“下载”访问本仓库 `github.com` 发布资产，并仅允许重定向到 `release-assets.githubusercontent.com` 的发布资产路径。检查包含本分支的 prerelease，排除草稿、非私有版本和旧版本，不使用会漏掉 prerelease 的 `/releases/latest`。
+
+更新客户端独立于账户网络栈，无 Cookie、令牌、API Key、Immich 地址、照片或人物信息，无正文日志，无自动重试。只有用户明确点击才联网；启动、返回前台、定时任务和安装权限返回不发起更新请求。HTTPS、重定向次数、响应时间、JSON（1 MiB）及 APK（150 MiB）都有上限。网络运营方/GitHub 仍能看到普通网络请求的来源 IP 和固定应用标识，这不是“所有流量只到自有服务器”。
+
+下载必须匹配 GitHub 的资产大小与 SHA-256；Google apksig 对实际 APK 签名内容做验证，要求 v2/v3 和本分支固定证书 SHA-256 `276fac8da58ea9cf2ad0f32a7a3e989a9c4f46084aea351569b944027c1bb330`，包名和版本必须匹配且严格递增。PackageManager 仅用于读取包名/版本，不将提取证书误认为完整密码学校验。安装前复制到新的私有只读文件并再次验证，只有系统安装器获得单个 APK 的临时只读 URI 权限。不请求存储权限，不绕过 Android 未知来源权限或安装确认。
+
+离开更新页面取消未完成任务并丢弃旧回调；后台仍立即撤销 Immich 会话和执行 PIN 策略。仅保存一个已验证的公共待安装 APK 和公开版本/摘要信息（离线复用有效期24小时，过期后下次手动打开时清理），返回权限页后需手动重新打开更新页并点“安装”；此时仅离线重新验证，不重复下载，也不自动安装。已交给系统的公共安装包保持可读，不因应用 onStop 提前删除，并在后续手动打开更新界面时清理过期文件。更新机制不要求额外 checksum/JSON 发布附件，只使用 APK 和 GitHub 提供的摘要。Google apksig 的 Android API24/28/37、R8 发布构建及电视安装器兼容性须通过候选 CI/设备验收，不将静态审计当作安装实测。

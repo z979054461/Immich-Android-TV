@@ -56,7 +56,7 @@ for root in (APP, MEDIA):
             check(not re.search(pattern, source, re.I if reason == "credential in URL" else 0),
                   f"{path.relative_to(ROOT)}: prohibited {reason}")
         if re.search(r"OkHttpClient\s*\.\s*Builder\s*\(", source):
-            check(path == KOTLIN / "api/ApiClientFactory.kt",
+            check(path in (KOTLIN / "api/ApiClientFactory.kt", KOTLIN / "update/UpdateRepository.kt"),
                   f"{path.relative_to(ROOT)}: HTTP client created outside guarded factory")
         check(not re.search(r"OkHttpUrlLoader\.Factory\s*\(\s*\)", source),
               f"{path.relative_to(ROOT)}: unguarded Glide fallback")
@@ -109,6 +109,47 @@ for path in KOTLIN.rglob("*.kt"):
           f"{path.relative_to(ROOT)}: production client bypasses session/image snapshot wrapper")
     check(path.name == "ProfileStore.kt" or not re.search(r"\bApiClientConfig\s*\(", source),
           f"{path.relative_to(ROOT)}: manually assembled connection may mix host and key")
+
+# User-approved manual updates are the sole public transport exception. Media guards above remain unchanged.
+updater = without_comments(text(KOTLIN / "update/UpdateRepository.kt"))
+for required in (".cookieJar(CookieJar.NO_COOKIES)", ".authenticator(Authenticator.NONE)",
+                 ".proxyAuthenticator(Authenticator.NONE)", ".proxy(Proxy.NO_PROXY)", ".cache(null)",
+                 ".followRedirects(false)", ".followSslRedirects(false)", ".callTimeout(",
+                 'url.scheme != "https"', 'url.port != 443', 'url.host != "github.com"',
+                 'to.host != "release-assets.githubusercontent.com"', 'MAX_REDIRECTS = 3',
+                 'https://api.github.com/repos/z979054461/Immich-Android-TV/releases?per_page=100'):
+    check(required in updater, f"Manual updater missing isolated transport guard: {required}")
+for path in (KOTLIN / "update").glob("*.kt"):
+    source = without_comments(text(path))
+    check(not any(token in source for token in ("PreferenceManager", "ApiClientConfig", "ApiClientFactory",
+              "Timber", "Log.", "WorkManager", "AlarmManager", "BroadcastReceiver")),
+          f"{path.name}: updater must never use account/session data, logging, or scheduled/background triggers")
+    if path.name != "UpdateRepository.kt":
+        check("OkHttpClient" not in source, f"{path.name}: updater must use only its isolated transport")
+update_dialog = without_comments(text(KOTLIN / "update/ManualUpdateDialog.kt"))
+check("repository.cancel()" in update_dialog and "pending?.cancel(true)" in update_dialog and
+      "if (!closed && dialog.isShowing)" in update_dialog and "UpdateInstaller::discard" in update_dialog,
+      "Manual update dismissal must cancel work and discard stale installation callbacks")
+settings = without_comments(text(KOTLIN / "settings/SettingsFragment.kt"))
+check("updateDialog?.dismiss()" in settings.split("override fun onStop()", 1)[-1],
+      "Settings must dismiss updater on background without changing profile policy")
+verifier = without_comments(text(KOTLIN / "update/UpdateApkVerifier.kt"))
+for required in ("ApkVerifier.Builder", "result.isVerified", "result.isVerifiedUsingV2Scheme",
+                 "signerDigests != listOf(SIGNER_SHA256)", "SIGNER_SHA256", "verifyDigest(file, candidate)",
+                 "packageName != PACKAGE", "versionCode <= installedCode"):
+    check(required in verifier, f"Update APK validation missing: {required}")
+proguard = text(ROOT / "app/proguard-rules.pro")
+check("-keep class com.android.apksig.** { *; }" in proguard and
+      "RuntimeVisibleAnnotations" in proguard and "AnnotationDefault" in proguard and "Signature" in proguard,
+      "apksig reflective ASN.1 models and annotations must survive release shrinking")
+installer = without_comments(text(KOTLIN / "update/UpdateInstaller.kt"))
+check("FLAG_GRANT_READ_URI_PERMISSION" in installer and "FLAG_GRANT_WRITE_URI_PERMISSION" not in installer and
+      "file.setReadOnly()" in installer and "UpdateApkVerifier.verify(context, prepared.file, candidate)" in installer and
+      "MATCH_SYSTEM_ONLY" in installer,
+      "Installer must share only a reverified immutable APK read-only with the system")
+paths = ET.fromstring(text(APP / "res/xml/update_file_paths.xml"))
+check(len(paths) == 1 and paths[0].tag == "cache-path" and paths[0].get("path") == "update_installs/",
+      "Update provider must expose only its installation staging subdirectory")
 
 # Mandatory profile lock invariants, in addition to runtime tests.
 activity = without_comments(text(KOTLIN / "MainActivity.kt"))
@@ -205,6 +246,9 @@ check(any(node.get(a + "name") == receiver_permission for node in test_manifest.
       "Test manifest must request its signature receiver permission")
 check(application is not None, "Manifest application missing")
 if application is not None:
+    providers = [node for node in application.findall("provider") if node.get(a + "authorities") == "${applicationId}.updates"]
+    check(len(providers) == 1 and providers[0].get(a + "exported") == "false" and
+          providers[0].get(a + "grantUriPermissions") == "true", "Update provider must be nonexported with scoped grants")
     check(application.get(a + "allowBackup") == "false", "Manifest allowBackup must be false")
     check(application.get(a + "fullBackupContent") == "false", "Manifest fullBackupContent must be false")
     rules = application.get(a + "dataExtractionRules", "")

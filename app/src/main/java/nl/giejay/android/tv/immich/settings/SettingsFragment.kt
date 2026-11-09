@@ -20,6 +20,7 @@ import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 
 class SettingsFragment : RowsSupportFragment() {
     private val mRowsAdapter: ArrayObjectAdapter
+    private var updateDialog: nl.giejay.android.tv.immich.update.ManualUpdateDialog? = null
     private var pinGraceDialog: AlertDialog? = null
     private var thumbnailCacheDialog: AlertDialog? = null
 
@@ -45,6 +46,13 @@ class SettingsFragment : RowsSupportFragment() {
             mRowsAdapter.add(
                 createCardRow(
                     listOf(
+                        SettingsCard(
+                            getString(R.string.update_title), null, "manual_update",
+                            "ic_settings_settings", "ic_settings_settings"
+                        ) {
+                            updateDialog?.dismiss()
+                            updateDialog = nl.giejay.android.tv.immich.update.ManualUpdateDialog(requireContext()).show()
+                        },
                         SettingsCard(
                             ImmichApplication.appContext!!.getString(R.string.profiles_switch),
                             null,
@@ -119,6 +127,8 @@ class SettingsFragment : RowsSupportFragment() {
     }
 
     override fun onStop() {
+        updateDialog?.dismiss()
+        updateDialog = null
         pinGraceDialog?.dismiss()
         pinGraceDialog = null
         thumbnailCacheDialog?.dismiss()

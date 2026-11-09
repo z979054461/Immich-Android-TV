@@ -19,7 +19,16 @@ class ReceiverPermissionAuditTest(unittest.TestCase):
             self.namespace + "fullBackupContent": "false",
             self.namespace + "dataExtractionRules": "@xml/private_data_extraction_rules",
         })
-        for name in ("android.permission.INTERNET", self.permission):
+        provider = ET.SubElement(root.find("application"), "provider", {
+            self.namespace + "authorities": "io.github.z979054461.immichtv.updates",
+            self.namespace + "exported": "false",
+            self.namespace + "grantUriPermissions": "true",
+        })
+        ET.SubElement(provider, "meta-data", {
+            self.namespace + "name": "android.support.FILE_PROVIDER_PATHS",
+            self.namespace + "resource": "@xml/update_file_paths",
+        })
+        for name in ("android.permission.INTERNET", self.permission, "android.permission.REQUEST_INSTALL_PACKAGES"):
             ET.SubElement(root, "uses-permission", {self.namespace + "name": name})
         ET.SubElement(root, "permission", {
             self.namespace + "name": self.permission,
@@ -68,6 +77,19 @@ class ReceiverPermissionAuditTest(unittest.TestCase):
                 root.find("permission").set(self.namespace + "name", permission)
                 with self.assertRaisesRegex(ValueError, "declaration"):
                     self.inspect(root)
+
+    def test_update_provider_cannot_be_exported_or_unscoped(self):
+        for attribute, value in (("exported", "true"), ("grantUriPermissions", "false")):
+            root = self.manifest()
+            root.find("application/provider").set(self.namespace + attribute, value)
+            with self.assertRaisesRegex(ValueError, "nonexported"):
+                self.inspect(root)
+
+    def test_update_permission_is_explicit(self):
+        root = self.manifest()
+        root.remove(root.findall("uses-permission")[-1])
+        with self.assertRaisesRegex(ValueError, "installer permission"):
+            self.inspect(root)
 
     def test_duplicate_declaration_fails(self):
         root = self.manifest()

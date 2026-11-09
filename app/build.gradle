@@ -13,8 +13,8 @@ android {
         applicationId "io.github.z979054461.immichtv"
         minSdkVersion 24
         targetSdkVersion 37
-        versionCode 10200
-        versionName "1.2.0-private"
+        versionCode 10300
+        versionName "1.3.0-private"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testOptions.unitTests.includeAndroidResources = true
@@ -76,6 +76,8 @@ kotlin {
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
+    // Cryptographic APK content verification; never trust archive certificate metadata alone.
+    implementation "com.android.tools.build:apksig:9.2.1"
     implementation libs.kotlin.reflect
     implementation project(path: ':mediaslider:mediaslider')
     coreLibraryDesugaring libs.desugar.jdk.libs

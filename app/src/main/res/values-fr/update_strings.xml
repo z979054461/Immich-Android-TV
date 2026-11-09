@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_title">Mises à jour</string>
+    <string name="update_manual">La recherche démarre uniquement lorsque vous sélectionnez Rechercher.</string>
+    <string name="update_check">Rechercher</string>
+    <string name="update_checking">Recherche en cours…</string>
+    <string name="update_current">Aucune version privée plus récente disponible.</string>
+    <string name="update_available">La version %1$s est disponible.</string>
+    <string name="update_download">Télécharger</string>
+    <string name="update_downloading">Téléchargement et vérification…</string>
+    <string name="update_ready">Version %1$s : Prêt à installer. Si une autorisation est demandée, revenez ici et sélectionnez Installer. Aucune installation automatique.</string>
+    <string name="update_install">Installer</string>
+    <string name="update_verifying">Vérification en cours…</string>
+    <string name="update_failed">Mise à jour impossible. Vérifiez la connexion ou réessayez plus tard.</string>
+    <string name="update_permission_failed">Impossible d’ouvrir les paramètres d’autorisation.</string>
+    <string name="update_install_failed">Impossible d’ouvrir le programme d’installation.</string>
+</resources>
