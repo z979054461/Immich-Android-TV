@@ -193,6 +193,16 @@ manifest_path = APP / "AndroidManifest.xml"
 manifest = ET.fromstring(text(manifest_path))
 a = "{http://schemas.android.com/apk/res/android}"
 application = manifest.find("application")
+# The isolated Robolectric manifest must model the same signature-only receiver grant as AndroidX.
+test_manifest = ET.fromstring(text(ROOT / "app/src/test/AndroidManifest.xml"))
+receiver_permission = "io.github.z979054461.immichtv.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+test_receiver_declarations = [node for node in test_manifest.findall("permission")
+                              if node.get(a + "name") == receiver_permission]
+check(len(test_receiver_declarations) == 1 and
+      test_receiver_declarations[0].get(a + "protectionLevel") == "signature",
+      "Test manifest must declare exactly the app-owned signature receiver permission")
+check(any(node.get(a + "name") == receiver_permission for node in test_manifest.findall("uses-permission")),
+      "Test manifest must request its signature receiver permission")
 check(application is not None, "Manifest application missing")
 if application is not None:
     check(application.get(a + "allowBackup") == "false", "Manifest allowBackup must be false")

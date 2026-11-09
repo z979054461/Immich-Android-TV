@@ -64,6 +64,7 @@ class MainActivityGraceTest {
     private fun launcher() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
 
     @Before fun setup() {
+        InstalledReceiverPermission.grant()
         prefs.edit().clear().commit()
         originalStore = PreferenceManager.profiles
         PreferenceManager.lock()
@@ -194,6 +195,9 @@ class MainActivityGraceTest {
         ShadowSystemClock.advanceBy(Duration.ofMinutes(2))
         val receiver = MainActivity::class.java.getDeclaredField("screenOnReceiver").apply { isAccessible = true }
             .get(activity) as BroadcastReceiver
+        // Even direct invocation with an unrelated action must not operate on the grant.
+        receiver.onReceive(activity, Intent("synthetic.untrusted.SCREEN_ON"))
+        assertNotNull(pending.get(grace))
         receiver.onReceive(activity, Intent(Intent.ACTION_SCREEN_ON))
         assertNull(pending.get(grace))
         assertFalse(PreferenceManager.isLoggedId())

@@ -59,6 +59,7 @@ class MainActivityLockTest {
     private lateinit var originalStore: ProfileStore
 
     @Before fun clearProfiles() {
+        InstalledReceiverPermission.grant()
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE).edit().clear().commit()
         originalStore = PreferenceManager.profiles

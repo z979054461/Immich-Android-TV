@@ -16,6 +16,13 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Mirror AndroidX Core's merged install-time permission in the standalone test manifest.
+         Robolectric's Context permission shadow still needs the validated grant fixture. -->
+    <permission
+        android:name="io.github.z979054461.immichtv.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="io.github.z979054461.immichtv.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+
     <!-- Access internet-based media -->
     <uses-permission android:name="android.permission.INTERNET" />
 

@@ -42,11 +42,23 @@ def inspect_manifest(path):
                     for token in ('READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE',
                                   'MANAGE_EXTERNAL_STORAGE', 'READ_MEDIA_', 'CAMERA', 'RECORD_AUDIO')),
             'Unexpected sensitive permission')
+    receiver_permission = root.get('package') + '.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+    require(receiver_permission in permissions, 'Missing non-exported receiver permission request')
+    declarations = [node for node in root.findall('permission')
+                    if node.get(namespace + 'name') == receiver_permission]
+    require(len(declarations) == 1, 'Missing or duplicate app-owned receiver permission declaration')
+    protection = declarations[0].get(namespace + 'protectionLevel', '')
+    # apkanalyzer normally prints the symbolic value; other SDK decoders may emit its integer.
+    try:
+        signature_only = int(protection, 0) == 2
+    except ValueError:
+        signature_only = protection == 'signature'
+    require(signature_only, 'Non-exported receiver permission must remain signature-only')
     # Resource identifiers can differ between source XML and compiled APK XML;
     # compare only fields whose decoded meanings must match literally.
     return (root.get('package'), app.get(namespace + 'allowBackup'),
             app.get(namespace + 'debuggable', 'false'), app.get(namespace + 'fullBackupContent'),
-            permissions)
+            permissions, receiver_permission, signature_only)
 
 
 def main():

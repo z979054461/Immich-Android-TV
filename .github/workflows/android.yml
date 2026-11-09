@@ -57,7 +57,9 @@ jobs:
           packages: platform-tools
           accept-android-sdk-licenses: false
       - name: Privacy regression audit
-        run: python3 scripts/check_private_runtime.py
+        run: |
+          python3 scripts/check_private_runtime.py
+          python3 scripts/test_check_private_apk.py
       - name: Unit tests, lint, and unsigned release
         run: gradle --init-script "$RUNNER_TEMP/kotlin-mirror.init.gradle" :app:testDebugUnitTest :mediaslider:mediaslider:testDebugUnitTest :app:lintDebug :app:assembleRelease
       - name: Inspect release APK and merged manifest
