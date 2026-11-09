@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thumbnail_cache_title">Cache privé des miniatures</string>
+    <string name="thumbnail_cache_description">Accélère les miniatures de la chronologie, des albums et des personnes pendant cette session déverrouillée. Les données sont chiffrées sur cet appareil, avec une limite commune à tous les profils. Le verrouillage, le changement de profil ou le passage en arrière-plan révoque l’accès et vide le cache, même pendant le délai du code PIN. Les originaux et les vidéos ne sont jamais mis en cache. Modifier la limite efface les miniatures existantes.</string>
+    <string name="thumbnail_cache_off">Désactivé (chargement depuis le serveur)</string>
+    <string name="thumbnail_cache_64">64 Mio</string>
+    <string name="thumbnail_cache_128">128 Mio (par défaut)</string>
+    <string name="thumbnail_cache_256">256 Mio</string>
+    <string name="thumbnail_cache_clear">Vider le cache</string>
+    <string name="thumbnail_cache_clearing">Nettoyage…</string>
+    <string name="thumbnail_cache_cleared">Cache des miniatures vidé. La limite et la session déverrouillée restent inchangées.</string>
+    <string name="thumbnail_cache_clear_failed">Le nettoyage a échoué. Vérifiez que ce profil est toujours déverrouillé, puis réessayez.</string>
+</resources>

@@ -233,6 +233,11 @@
     </dialog>
 
     <fragment
+        android:id="@+id/connectionDiagnosticsFragment"
+        android:name="nl.giejay.android.tv.immich.diagnostics.ConnectionDiagnosticsFragment"
+        android:label="@string/diagnostics_title" />
+
+    <fragment
         android:id="@+id/viewSettings"
         android:name="nl.giejay.android.tv.immich.settings.PrefSettingsFragment"
         android:label="ViewSettings"></fragment>

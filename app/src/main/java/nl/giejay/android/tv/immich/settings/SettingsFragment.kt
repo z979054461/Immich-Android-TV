@@ -21,6 +21,7 @@ import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 class SettingsFragment : RowsSupportFragment() {
     private val mRowsAdapter: ArrayObjectAdapter
     private var pinGraceDialog: AlertDialog? = null
+    private var thumbnailCacheDialog: AlertDialog? = null
 
     init {
         val selector = ListRowPresenter()
@@ -66,6 +67,27 @@ class SettingsFragment : RowsSupportFragment() {
                             }
                         },
                         SettingsCard(
+                            getString(R.string.thumbnail_cache_title),
+                            getString(R.string.thumbnail_cache_description),
+                            "thumbnail_cache",
+                            "icon_view",
+                            "icon_view"
+                        ) {
+                            PreferenceManager.activeProfileId?.let { id ->
+                                thumbnailCacheDialog?.dismiss()
+                                thumbnailCacheDialog = ThumbnailCacheSettingsDialog.show(requireContext(), id)
+                            }
+                        },
+                        SettingsCard(
+                            ImmichApplication.appContext!!.getString(R.string.diagnostics_title),
+                            null,
+                            "connection_diagnostics",
+                            "ic_settings_settings",
+                            "ic_settings_settings"
+                        ) {
+                            findNavController().navigate(R.id.connectionDiagnosticsFragment)
+                        },
+                        SettingsCard(
                             ImmichApplication.appContext!!.getString(R.string.view_settings),
                             null,
                             "view_settings",
@@ -99,6 +121,8 @@ class SettingsFragment : RowsSupportFragment() {
     override fun onStop() {
         pinGraceDialog?.dismiss()
         pinGraceDialog = null
+        thumbnailCacheDialog?.dismiss()
+        thumbnailCacheDialog = null
         super.onStop()
     }
 

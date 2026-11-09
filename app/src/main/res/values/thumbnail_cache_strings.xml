@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thumbnail_cache_title">Private thumbnail cache</string>
+    <string name="thumbnail_cache_description">Speeds up timeline, album and people thumbnails during this unlocked session. Encrypted on this device, with one storage limit for all profiles. Locking, switching profiles or going to the background destroys access and clears the cache, even during PIN grace. Originals and videos are never cached. Changes clear existing thumbnails.</string>
+    <string name="thumbnail_cache_off">Off (always load from server)</string>
+    <string name="thumbnail_cache_64">64 MiB</string>
+    <string name="thumbnail_cache_128">128 MiB (default)</string>
+    <string name="thumbnail_cache_256">256 MiB</string>
+    <string name="thumbnail_cache_clear">Clear cache</string>
+    <string name="thumbnail_cache_clearing">Clearing…</string>
+    <string name="thumbnail_cache_cleared">Thumbnail cache cleared. Your storage limit and unlocked session are unchanged.</string>
+    <string name="thumbnail_cache_clear_failed">Unable to finish clearing the cache. Check that this profile is still unlocked and try again.</string>
+</resources>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">Connection diagnostics</string>
+    <string name="diagnostics_intro">Checks only your configured Immich server. Reads at most one asset metadata item and, optionally, one person. No photos are downloaded; addresses, keys and response contents are not shown or logged.</string>
+    <string name="diagnostics_include_people">Also check people access (person.read)</string>
+    <string name="diagnostics_start">Run checks / retry</string>
+    <string name="diagnostics_cancel">Cancel</string>
+    <string name="diagnostics_back">Back</string>
+    <string name="diagnostics_idle">Ready. Checks start only when you choose Run checks.</string>
+    <string name="diagnostics_running">Checking…</string>
+    <string name="diagnostics_finished">Checks finished. Review each result below; not every permission was tested.</string>
+    <string name="diagnostics_cancelled">Cancelled. Results cleared.</string>
+    <string name="diagnostics_locked">Session locked or changed. Unlock your profile and run checks again.</string>
+    <string name="diagnostics_step_configuration">Local settings</string>
+    <string name="diagnostics_step_ping">API connection</string>
+    <string name="diagnostics_step_version">Server version</string>
+    <string name="diagnostics_step_metadata">Asset metadata (asset.read)</string>
+    <string name="diagnostics_step_people">People (person.read)</string>
+    <string name="diagnostics_step_photo">Photo display (asset.view)</string>
+    <string name="diagnostics_not_run">Not run</string>
+    <string name="diagnostics_not_tested">Not tested</string>
+    <string name="diagnostics_passed">Passed</string>
+    <string name="diagnostics_invalid_configuration">Check the saved server address and API key format.</string>
+    <string name="diagnostics_dns_failure">Server name could not be resolved. Check the address and DNS.</string>
+    <string name="diagnostics_connection_failure">Could not connect. Check the server, port and network.</string>
+    <string name="diagnostics_timeout">Timed out. The network or server may be slow; retry when ready.</string>
+    <string name="diagnostics_certificate_failure">TLS or certificate check failed. Check the certificate, hostname and TV clock. Verification was not bypassed.</string>
+    <string name="diagnostics_redirect_blocked">Redirect blocked. Configure the final server address directly.</string>
+    <string name="diagnostics_unauthorized">Authentication rejected (401). Check the API key and reverse-proxy access rules.</string>
+    <string name="diagnostics_forbidden">Access denied (403). Check the read permission named for this step, or reverse-proxy access rules. Do not grant all.</string>
+    <string name="diagnostics_not_found">Not found (404). Check the API base path and server compatibility.</string>
+    <string name="diagnostics_bad_request">Request rejected (400). This API may not match the supported contract.</string>
+    <string name="diagnostics_server_error">Server or reverse proxy error (5xx).</string>
+    <string name="diagnostics_http_error">Unexpected HTTP status. Check the server or reverse proxy.</string>
+    <string name="diagnostics_unexpected_response">Unexpected or oversized response. Check the API address and reverse proxy.</string>
+    <string name="diagnostics_network_failure">Network request failed. Check the connection and retry.</string>
+    <string name="diagnostics_photo_notice">Photo and video access is not tested here. Metadata access does not prove asset.view or asset.download permission. An empty library can still pass these checks.</string>
+    <string name="diagnostics_version_value">%1$d.%2$d.%3$d</string>
+    <string name="diagnostics_elapsed"> · %1$d ms</string>
+    <string name="diagnostics_result_row">%1$s: %2$s%3$s</string>
+    <string name="diagnostics_unsupported_version">Skipped. These permission checks are currently verified only for Immich 3.3.5. This is not a permission failure.</string>
+    <string name="diagnostics_version_unavailable">Skipped because the server version could not be verified. Permission status is unknown.</string>
+    <string name="diagnostics_request_contract_rejected">Diagnostic request rejected (400). Check app/API compatibility; this does not establish a missing permission.</string>
+</resources>

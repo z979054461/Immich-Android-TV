@@ -177,10 +177,10 @@ jobs:
           [[ "$ACTUAL" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Expected exactly one unique APK signer SHA-256 digest"; exit 1; }
           [[ "$ACTUAL" = "$EXPECTED" ]] || { echo "::error::APK signer certificate does not match the pinned dedicated key"; exit 1; }
           mkdir -p deliverables
-          cp "$APK" deliverables/ImmichTV-Private-1.1.1.apk
-          sha256sum deliverables/ImmichTV-Private-1.1.1.apk > deliverables/SHA256SUMS.txt
+          cp "$APK" deliverables/ImmichTV-Private-1.2.0.apk
+          (cd deliverables && sha256sum ImmichTV-Private-1.2.0.apk > SHA256SUMS.txt)
           printf '%s\n' "$ACTUAL" > deliverables/SIGNING-CERT-SHA256.txt
-          git archive --format=zip -o deliverables/ImmichTV-Private-1.1.1-source.zip HEAD
+          git archive --format=zip -o deliverables/ImmichTV-Private-1.2.0-source.zip HEAD
       - uses: actions/upload-artifact@v4
         with:
           name: immich-tv-private-signed

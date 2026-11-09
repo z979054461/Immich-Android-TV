@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thumbnail_cache_title">Закрытый кеш миниатюр</string>
+    <string name="thumbnail_cache_description">Ускоряет загрузку миниатюр ленты, альбомов и людей в текущем разблокированном сеансе. Данные зашифрованы на этом устройстве, лимит общий для всех профилей. При блокировке, смене профиля или переходе в фон доступ отзывается и кеш очищается, даже в период возврата без PIN. Оригиналы и видео не кешируются. Изменение лимита очищает существующие миниатюры.</string>
+    <string name="thumbnail_cache_off">Выключен (загрузка с сервера)</string>
+    <string name="thumbnail_cache_64">64 МиБ</string>
+    <string name="thumbnail_cache_128">128 МиБ (по умолчанию)</string>
+    <string name="thumbnail_cache_256">256 МиБ</string>
+    <string name="thumbnail_cache_clear">Очистить кеш</string>
+    <string name="thumbnail_cache_clearing">Очистка…</string>
+    <string name="thumbnail_cache_cleared">Кеш миниатюр очищен. Лимит и разблокированный сеанс не изменены.</string>
+    <string name="thumbnail_cache_clear_failed">Не удалось завершить очистку. Убедитесь, что профиль разблокирован, и повторите попытку.</string>
+</resources>

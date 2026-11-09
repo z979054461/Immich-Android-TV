@@ -152,5 +152,6 @@ fun Asset.toCard(): Card {
         this.exifInfo?.description ?: "",
         this.id,
         ApiUtil.getThumbnailUrl(this.id, "thumbnail"),
-        ApiUtil.getThumbnailUrl(this.id, "preview"))
+        ApiUtil.getThumbnailUrl(this.id, "preview"),
+        thumbnailVersion = fileModifiedAt?.time?.toString().orEmpty())
 }

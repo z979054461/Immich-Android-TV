@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thumbnail_cache_title">私密缩略图缓存</string>
+    <string name="thumbnail_cache_description">加快本次解锁期间时间线、相册和人物缩略图的加载。仅在本机加密保存，所有账户共用此容量上限。锁定、切换账户或进入后台后立即撤销访问并清理，即使仍在 PIN 宽限期内。原图和视频从不缓存。更改容量会清理已有缩略图。</string>
+    <string name="thumbnail_cache_off">关闭（始终从服务器加载）</string>
+    <string name="thumbnail_cache_64">64 MiB</string>
+    <string name="thumbnail_cache_128">128 MiB（默认）</string>
+    <string name="thumbnail_cache_256">256 MiB</string>
+    <string name="thumbnail_cache_clear">清空缓存</string>
+    <string name="thumbnail_cache_clearing">正在清理…</string>
+    <string name="thumbnail_cache_cleared">缩略图缓存已清空。容量设置与当前解锁状态保持不变。</string>
+    <string name="thumbnail_cache_clear_failed">未能完成清理，请确认当前账户仍已解锁后重试。</string>
+</resources>

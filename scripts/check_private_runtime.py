@@ -267,6 +267,54 @@ for path in (ROOT / "mediaslider").rglob("*"):
         check("res.cloudinary.com/" not in source and "kartiksaraf9@gmail.com" not in source,
               f"{path.relative_to(ROOT)}: obsolete personal contact/demo service remains")
 
+# Thumbnail caching is a separate ephemeral encrypted store, never a Glide URL cache.
+thumbnail_core = without_comments(text(KOTLIN / "security/PrivateThumbnailCache.java"))
+thumbnail_bridge = without_comments(text(KOTLIN / "shared/PrivateThumbnails.kt"))
+thumbnail_request = without_comments(text(KOTLIN / "api/PrivateThumbnailRequest.kt"))
+thumbnail_transport = without_comments(text(KOTLIN / "api/ThumbnailNetworkSession.kt"))
+thumbnail_loader = without_comments(text(KOTLIN / "shared/PrivateThumbnailModelLoader.kt"))
+for required in ('"AES/GCM/NoPadding"', "cipher.updateAAD(session.identity)",
+                 "cipher.updateAAD(key.authenticatedIdentity())", "Arrays.fill(retired.key", "retired.key = null",
+                 "usedConnections", "requireCurrentLocked(session)", "reservedBytes()", "readBounded(",
+                 "storageGeneration++", "reservation.generation != storageGeneration"):
+    check(required in thumbnail_core, f"Private thumbnail cache missing invariant: {required}")
+check("context.cacheDir" in thumbnail_bridge and '"private_thumbnails"' in thumbnail_core,
+      "Encrypted thumbnails must stay under the app-private cache directory")
+check("ApiClientFactory.forSession(config)" in thumbnail_transport and
+      "ServerPolicy.requireAllowed(server, url)" in thumbnail_request,
+      "Thumbnail source must retain captured credentials and existing transport guards")
+check("ApiClientFactory.forSession(config)" not in thumbnail_request and
+      "client = null" in thumbnail_transport and "connection = null" in thumbnail_transport and
+      "pool.evictAll()" in thumbnail_transport and "network?.revoke()" in thumbnail_bridge,
+      "Thumbnail misses must share a guarded session pool and release it on revocation")
+check("cache?.reject(it)" in thumbnail_bridge and "loaded.entryToken" in thumbnail_loader and
+      "entry.generation != storageGeneration" in thumbnail_core and "entry.iv" in thumbnail_core,
+      "Decoder failure must evict only its captured account/generation/nonce entry")
+rejection = thumbnail_core.split("public boolean reject(", 1)[-1].split("private void cleanRejectedEntries(", 1)[0]
+check("synchronized (disk)" not in rejection and "synchronized (state)" not in rejection and
+      "MAX_REJECTED_ENTRIES" in rejection and "cleanup.execute(this::cleanRejectedEntries)" in rejection,
+      "Decoder rejection must be bounded memory work with background-only disk cleanup")
+check('segments[2] != "thumbnail"' in thumbnail_request and '"assets" ->' in thumbnail_request and
+      '"people" ->' in thumbnail_request, "Thumbnail caching needs an explicit endpoint whitelist")
+check("PrivateThumbnails.revoke()" in invalidator and "PrivateThumbnails.begin(activeConnection, id)" in resume,
+      "Background invalidation must revoke cached media even during PIN grace")
+check("activeConnection = connection.copy()" in prefs,
+      "Profile activation must not republish a previously captured connection identity")
+check("deliverIfCurrent" in thumbnail_bridge and "callback.onDataReady(loaded)" in thumbnail_loader and
+      "loaded.requireCurrent()" in thumbnail_loader,
+      "Thumbnail streams and decoded target delivery must both remain session-guarded")
+thumbnail_settings = without_comments(text(KOTLIN / "settings/ThumbnailCacheSettingsDialog.kt"))
+check("setNeutralButton(R.string.thumbnail_cache_clear" in thumbnail_settings and
+      "clearThumbnailCache(profileId, connection)" in thumbnail_settings and
+      "activeConnection === expectedConnection" in prefs,
+      "Explicit cache clear must preserve settings and reject stale account/session dialogs")
+check("MemoryCacheAdapter()" in glide and "DiskCacheAdapter()" in glide and "BitmapPoolAdapter()" in glide,
+      "Private cache must not reactivate Glide's shared plaintext/URL caches")
+for relative in ("card/CardPresenter.kt", "timeline/MemoryPresenter.kt", "timeline/TimelineMosaicAdapter.kt"):
+    presenter = without_comments(text(KOTLIN / relative))
+    check("PrivateThumbnails.model(" in presenter and "PrivateThumbnails.guard()" in presenter,
+          f"{relative}: cached thumbnails require captured model and final delivery guard")
+
 if failures:
     print(f"FAIL: {len(failures)} privacy checks failed ({checks} checks)")
     for failure in failures:

@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.leanback.widget.HorizontalGridView
 import androidx.leanback.widget.Presenter
 import com.bumptech.glide.Glide
+import nl.giejay.android.tv.immich.shared.PrivateThumbnails
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.api.model.Memory
 import nl.giejay.android.tv.immich.api.util.ApiUtil
@@ -50,9 +51,11 @@ class MemoryPresenter(
 
         title.text = yearsAgoLabel(context, memory)
 
-        val coverId = memory.assets.firstOrNull()?.id
+        val cover = memory.assets.firstOrNull()
         Glide.with(image)
-            .load(ApiUtil.getThumbnailUrl(coverId, "thumbnail"))
+            .load(PrivateThumbnails.model(ApiUtil.getThumbnailUrl(cover?.id, "thumbnail"),
+                cover?.fileModifiedAt?.time?.toString().orEmpty()))
+            .listener(PrivateThumbnails.guard())
             .centerCrop()
             .into(image)
 

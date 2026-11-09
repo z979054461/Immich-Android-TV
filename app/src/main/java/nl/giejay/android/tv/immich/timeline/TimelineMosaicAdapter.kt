@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import nl.giejay.android.tv.immich.shared.PrivateThumbnails
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.api.model.Memory
 import nl.giejay.android.tv.immich.api.util.ApiUtil
@@ -239,7 +240,8 @@ class TimelineMosaicAdapter(
 
                 val url = ApiUtil.getThumbnailUrl(cell.asset.id, "thumbnail")
                 Glide.with(image)
-                    .load(url)
+                    .load(PrivateThumbnails.model(url, cell.asset.thumbhash.orEmpty()))
+                    .listener(PrivateThumbnails.guard())
                     .centerCrop()
                     .into(image)
 

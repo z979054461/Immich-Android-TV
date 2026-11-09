@@ -25,6 +25,7 @@ import nl.giejay.android.tv.immich.assets.RandomAssetsFragment
 import nl.giejay.android.tv.immich.assets.RecentAssetsFragment
 import nl.giejay.android.tv.immich.assets.SimilarTimeAssetsFragment
 import nl.giejay.android.tv.immich.people.PeopleFragment
+import nl.giejay.android.tv.immich.search.PhotoSearchFragment
 import nl.giejay.android.tv.immich.settings.SettingsFragment
 import nl.giejay.android.tv.immich.shared.fragment.GridFragment
 import nl.giejay.android.tv.immich.shared.prefs.HIDDEN_HOME_ITEMS
@@ -139,6 +140,7 @@ class HomeFragment : BrowseSupportFragment() {
                 }
             },
             Header(ImmichApplication.appContext!!.getString(R.string.photos)) { AllAssetFragment() },
+            Header(ImmichApplication.appContext!!.getString(R.string.search_filters)) { PhotoSearchFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.random)) { RandomAssetsFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.people)) { PeopleFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.recent)) { RecentAssetsFragment() },

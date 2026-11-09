@@ -15,6 +15,7 @@ import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.module.AppGlideModule
 import nl.giejay.android.tv.immich.api.ApiClientFactory
+import nl.giejay.android.tv.immich.api.PrivateThumbnailRequest
 import java.io.InputStream
 
 @GlideModule
@@ -32,5 +33,7 @@ class CustomGlideModule : AppGlideModule() {
         // Always guarded, including startup, logout and atomic server changes.
         registry.replace(GlideUrl::class.java, InputStream::class.java,
             OkHttpUrlLoader.Factory(ApiClientFactory.forImages()))
+        registry.prepend(PrivateThumbnailRequest::class.java, InputStream::class.java,
+            PrivateThumbnailModelLoader.Factory())
     }
 }

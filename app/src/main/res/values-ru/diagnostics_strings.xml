@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">Диагностика подключения</string>
+    <string name="diagnostics_intro">Проверяется только настроенный сервер Immich. Читаются метаданные не более одного файла и, по желанию, данные одного человека. Фотографии не загружаются. Адреса, ключи и содержимое ответов не отображаются и не записываются в журнал.</string>
+    <string name="diagnostics_include_people">Также проверить доступ к людям (person.read)</string>
+    <string name="diagnostics_start">Проверить / повторить</string>
+    <string name="diagnostics_cancel">Отмена</string>
+    <string name="diagnostics_back">Назад</string>
+    <string name="diagnostics_idle">Готово к проверке. Нажмите «Проверить», чтобы начать.</string>
+    <string name="diagnostics_running">Проверка…</string>
+    <string name="diagnostics_finished">Проверки завершены. Просмотрите результаты ниже: проверены не все разрешения.</string>
+    <string name="diagnostics_cancelled">Отменено. Результаты очищены.</string>
+    <string name="diagnostics_locked">Сеанс заблокирован или изменён. Разблокируйте профиль и повторите проверку.</string>
+    <string name="diagnostics_step_configuration">Локальные настройки</string>
+    <string name="diagnostics_step_ping">Подключение к API</string>
+    <string name="diagnostics_step_version">Версия сервера</string>
+    <string name="diagnostics_step_metadata">Метаданные файлов (asset.read)</string>
+    <string name="diagnostics_step_people">Люди (person.read)</string>
+    <string name="diagnostics_step_photo">Отображение фотографий (asset.view)</string>
+    <string name="diagnostics_not_run">Не выполнено</string>
+    <string name="diagnostics_not_tested">Не проверено</string>
+    <string name="diagnostics_passed">Успешно</string>
+    <string name="diagnostics_invalid_configuration">Проверьте сохранённый адрес сервера и формат ключа API.</string>
+    <string name="diagnostics_dns_failure">Не удалось определить адрес сервера. Проверьте имя сервера и DNS.</string>
+    <string name="diagnostics_connection_failure">Не удалось подключиться. Проверьте сервер, порт и сеть.</string>
+    <string name="diagnostics_timeout">Время ожидания истекло. Возможно, сеть или сервер работают медленно. Повторите позже.</string>
+    <string name="diagnostics_certificate_failure">Ошибка TLS или проверки сертификата. Проверьте сертификат, имя сервера и время на телевизоре. Проверка сертификата не отключалась.</string>
+    <string name="diagnostics_redirect_blocked">Перенаправление заблокировано. Укажите конечный адрес сервера напрямую.</string>
+    <string name="diagnostics_unauthorized">Ошибка аутентификации (401). Проверьте ключ API и правила доступа обратного прокси.</string>
+    <string name="diagnostics_forbidden">Доступ запрещён (403). Проверьте разрешение на чтение для этого шага или правила обратного прокси. Не выдавайте разрешение all.</string>
+    <string name="diagnostics_not_found">Не найдено (404). Проверьте путь API и совместимость сервера.</string>
+    <string name="diagnostics_bad_request">Запрос отклонён (400). Возможно, API отличается от поддерживаемого формата.</string>
+    <string name="diagnostics_server_error">Ошибка сервера или обратного прокси (5xx).</string>
+    <string name="diagnostics_http_error">Неожиданный статус HTTP. Проверьте сервер или обратный прокси.</string>
+    <string name="diagnostics_unexpected_response">Неверный формат или слишком большой ответ. Проверьте адрес API и обратный прокси.</string>
+    <string name="diagnostics_network_failure">Ошибка сетевого запроса. Проверьте подключение и повторите.</string>
+    <string name="diagnostics_photo_notice">Доступ к фотографиям и видео здесь не проверяется. Доступ к метаданным не подтверждает разрешения asset.view или asset.download. Пустая библиотека также может пройти эти проверки.</string>
+    <string name="diagnostics_version_value">%1$d.%2$d.%3$d</string>
+    <string name="diagnostics_elapsed"> · %1$d мс</string>
+    <string name="diagnostics_result_row">%1$s: %2$s%3$s</string>
+    <string name="diagnostics_unsupported_version">Пропущено. Эти проверки разрешений проверены только для Immich 3.3.5. Это не означает отсутствие разрешений.</string>
+    <string name="diagnostics_version_unavailable">Пропущено: не удалось подтвердить версию сервера. Состояние разрешений неизвестно.</string>
+    <string name="diagnostics_request_contract_rejected">Диагностический запрос отклонён (400). Проверьте совместимость приложения и API: это не подтверждает отсутствие разрешений.</string>
+</resources>

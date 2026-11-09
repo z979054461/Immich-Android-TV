@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">Diagnostic de connexion</string>
+    <string name="diagnostics_intro">Vérifie uniquement votre serveur Immich configuré. Lit au maximum les métadonnées d’un fichier et, en option, une personne. Aucune photo n’est téléchargée. Les adresses, clés et réponses ne sont ni affichées ni journalisées.</string>
+    <string name="diagnostics_include_people">Vérifier aussi les personnes (person.read)</string>
+    <string name="diagnostics_start">Vérifier / réessayer</string>
+    <string name="diagnostics_cancel">Annuler</string>
+    <string name="diagnostics_back">Retour</string>
+    <string name="diagnostics_idle">Prêt. Lancez les vérifications avec le bouton Vérifier.</string>
+    <string name="diagnostics_running">Vérification en cours…</string>
+    <string name="diagnostics_finished">Vérifications terminées. Consultez chaque résultat ci-dessous ; toutes les autorisations n’ont pas été testées.</string>
+    <string name="diagnostics_cancelled">Annulé. Résultats effacés.</string>
+    <string name="diagnostics_locked">Session verrouillée ou modifiée. Déverrouillez votre profil puis relancez les vérifications.</string>
+    <string name="diagnostics_step_configuration">Configuration locale</string>
+    <string name="diagnostics_step_ping">Connexion à l’API</string>
+    <string name="diagnostics_step_version">Version du serveur</string>
+    <string name="diagnostics_step_metadata">Métadonnées (asset.read)</string>
+    <string name="diagnostics_step_people">Personnes (person.read)</string>
+    <string name="diagnostics_step_photo">Affichage des photos (asset.view)</string>
+    <string name="diagnostics_not_run">Non exécuté</string>
+    <string name="diagnostics_not_tested">Non testé</string>
+    <string name="diagnostics_passed">Réussi</string>
+    <string name="diagnostics_invalid_configuration">Vérifiez l’adresse du serveur et le format de la clé API enregistrés.</string>
+    <string name="diagnostics_dns_failure">Impossible de résoudre le nom du serveur. Vérifiez l’adresse et le DNS.</string>
+    <string name="diagnostics_connection_failure">Connexion impossible. Vérifiez le serveur, le port et le réseau.</string>
+    <string name="diagnostics_timeout">Délai dépassé. Le réseau ou le serveur peut être lent ; réessayez plus tard.</string>
+    <string name="diagnostics_certificate_failure">Échec TLS ou de vérification du certificat. Vérifiez le certificat, le nom du serveur et l’horloge du téléviseur. La vérification n’a pas été contournée.</string>
+    <string name="diagnostics_redirect_blocked">Redirection bloquée. Configurez directement l’adresse finale du serveur.</string>
+    <string name="diagnostics_unauthorized">Authentification refusée (401). Vérifiez la clé API et les règles du proxy inverse.</string>
+    <string name="diagnostics_forbidden">Accès refusé (403). Vérifiez l’autorisation de lecture indiquée pour cette étape ou les règles du proxy inverse. N’accordez pas all.</string>
+    <string name="diagnostics_not_found">Introuvable (404). Vérifiez le chemin de l’API et la compatibilité du serveur.</string>
+    <string name="diagnostics_bad_request">Requête refusée (400). Cette API peut différer du contrat pris en charge.</string>
+    <string name="diagnostics_server_error">Erreur du serveur ou du proxy inverse (5xx).</string>
+    <string name="diagnostics_http_error">Statut HTTP inattendu. Vérifiez le serveur ou le proxy inverse.</string>
+    <string name="diagnostics_unexpected_response">Réponse inattendue ou trop volumineuse. Vérifiez l’adresse de l’API et le proxy inverse.</string>
+    <string name="diagnostics_network_failure">Échec de la requête réseau. Vérifiez la connexion puis réessayez.</string>
+    <string name="diagnostics_photo_notice">L’accès aux photos et vidéos n’est pas testé ici. La lecture des métadonnées ne prouve pas les autorisations asset.view ou asset.download. Une photothèque vide peut réussir ces vérifications.</string>
+    <string name="diagnostics_version_value">%1$d.%2$d.%3$d</string>
+    <string name="diagnostics_elapsed"> · %1$d ms</string>
+    <string name="diagnostics_result_row">%1$s : %2$s%3$s</string>
+    <string name="diagnostics_unsupported_version">Ignoré. Ces vérifications d’autorisations ont été examinées uniquement pour Immich 3.3.5. Ce n’est pas un échec d’autorisation.</string>
+    <string name="diagnostics_version_unavailable">Ignoré : la version du serveur n’a pas pu être vérifiée. Les autorisations restent inconnues.</string>
+    <string name="diagnostics_request_contract_rejected">Requête de diagnostic refusée (400). Vérifiez la compatibilité application/API ; cela ne prouve pas un manque d’autorisation.</string>
+</resources>

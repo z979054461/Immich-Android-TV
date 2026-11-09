@@ -121,7 +121,7 @@ class MainActivityGraceTest {
         settle(activity)
         ViewModelProvider(activity)[MediaSliderViewModel::class.java].configuration = Mockito.mock(MediaSliderConfiguration::class.java)
         BackgroundManager.getInstance(activity).apply { if (!isAttached) attach(activity.window); drawable = ColorDrawable(Color.RED) }
-        return connection
+        return PreferenceManager.connectionSnapshot()
     }
 
     private fun background(activity: MainActivity) {

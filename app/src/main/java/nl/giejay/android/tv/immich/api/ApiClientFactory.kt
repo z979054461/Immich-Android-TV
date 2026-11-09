@@ -32,6 +32,14 @@ object ApiClientFactory {
         .callTimeout(90, TimeUnit.SECONDS)
         .build()
 
+    /** Explicit foreground diagnostics have short deadlines; never change media/API timeouts. */
+    fun forDiagnosticSession(config: ApiClientConfig): OkHttpClient = forSession(config).newBuilder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false)
+        .build()
+
     /** Glide is process-global: read exactly one current connection for each image request. */
     fun forImages(): OkHttpClient = OkHttpClient.Builder().dispatcher(dispatcher)
         .followRedirects(false).followSslRedirects(false)

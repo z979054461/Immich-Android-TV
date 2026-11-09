@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">连接诊断</string>
+    <string name="diagnostics_intro">仅检查你配置的 Immich 服务器。最多读取一项照片元数据；勾选人物检查后最多读取一项人物信息。不下载照片，不显示或记录地址、密钥和响应内容。</string>
+    <string name="diagnostics_include_people">同时检查人物访问权限（person.read）</string>
+    <string name="diagnostics_start">开始检查／重试</string>
+    <string name="diagnostics_cancel">取消</string>
+    <string name="diagnostics_back">返回</string>
+    <string name="diagnostics_idle">准备就绪。按“开始检查”后才会访问服务器。</string>
+    <string name="diagnostics_running">正在检查…</string>
+    <string name="diagnostics_finished">检查结束。请查看各项结果；这不表示所有权限均已验证。</string>
+    <string name="diagnostics_cancelled">已取消并清除结果。</string>
+    <string name="diagnostics_locked">会话已锁定或切换。请重新解锁档案后再检查。</string>
+    <string name="diagnostics_step_configuration">本地配置</string>
+    <string name="diagnostics_step_ping">API 连接</string>
+    <string name="diagnostics_step_version">服务器版本</string>
+    <string name="diagnostics_step_metadata">照片元数据（asset.read）</string>
+    <string name="diagnostics_step_people">人物（person.read）</string>
+    <string name="diagnostics_step_photo">照片显示（asset.view）</string>
+    <string name="diagnostics_not_run">未运行</string>
+    <string name="diagnostics_not_tested">未检查</string>
+    <string name="diagnostics_passed">通过</string>
+    <string name="diagnostics_invalid_configuration">请检查已保存的服务器地址和 API Key 格式。</string>
+    <string name="diagnostics_dns_failure">无法解析服务器名称，请检查地址和 DNS。</string>
+    <string name="diagnostics_connection_failure">无法建立连接，请检查服务器、端口和网络。</string>
+    <string name="diagnostics_timeout">连接超时，网络或服务器可能较慢，请稍后重试。</string>
+    <string name="diagnostics_certificate_failure">TLS 或证书检查失败，请检查证书、主机名和电视时间。未绕过证书验证。</string>
+    <string name="diagnostics_redirect_blocked">已阻止重定向，请直接配置最终服务器地址。</string>
+    <string name="diagnostics_unauthorized">身份验证被拒绝（401），请检查 API Key 和反向代理访问规则。</string>
+    <string name="diagnostics_forbidden">访问被拒绝（403），请检查本项标出的读取权限或反向代理访问规则，不要授予 all。</string>
+    <string name="diagnostics_not_found">未找到接口（404），请检查 API 路径和服务器兼容性。</string>
+    <string name="diagnostics_bad_request">请求被拒绝（400），服务器接口可能与支持的契约不一致。</string>
+    <string name="diagnostics_server_error">服务器或反向代理错误（5xx）。</string>
+    <string name="diagnostics_http_error">HTTP 状态异常，请检查服务器或反向代理。</string>
+    <string name="diagnostics_unexpected_response">响应格式异常或过大，请检查 API 地址和反向代理。</string>
+    <string name="diagnostics_network_failure">网络请求失败，请检查连接后重试。</string>
+    <string name="diagnostics_photo_notice">此处不检查照片或视频读取。元数据检查通过不代表具有 asset.view 或 asset.download 权限。空图库也可以通过这些检查。</string>
+    <string name="diagnostics_version_value">%1$d.%2$d.%3$d</string>
+    <string name="diagnostics_elapsed"> · %1$d 毫秒</string>
+    <string name="diagnostics_result_row">%1$s：%2$s%3$s</string>
+    <string name="diagnostics_unsupported_version">已跳过。目前权限检查仅核对过 Immich 3.3.5，不代表当前版本的权限不足。</string>
+    <string name="diagnostics_version_unavailable">已跳过，无法确认服务器版本，权限状态未知。</string>
+    <string name="diagnostics_request_contract_rejected">诊断请求被拒绝（400），请检查应用与 API 的兼容性；这不表示缺少读取权限。</string>
+</resources>

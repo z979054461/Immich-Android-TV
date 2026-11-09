@@ -7,4 +7,5 @@ interface ICard {
     val thumbnailUrl: String?
     val backgroundUrl: String?
     val selected: Boolean
+    val thumbnailVersion: String get() = ""
 }

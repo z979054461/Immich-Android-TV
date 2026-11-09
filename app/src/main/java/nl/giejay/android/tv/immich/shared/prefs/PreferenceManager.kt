@@ -29,6 +29,8 @@ import nl.giejay.mediaslider.plugin.SliderViewPlugin
 import nl.giejay.mediaslider.util.MetaDataConverter
 import nl.giejay.android.tv.immich.api.ServerPolicy
 import nl.giejay.android.tv.immich.api.ApiClientConfig
+import nl.giejay.android.tv.immich.security.PrivateThumbnailCache
+import nl.giejay.android.tv.immich.shared.PrivateThumbnails
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.reflect.KClass
 
@@ -51,7 +53,7 @@ object PreferenceManager {
 
     lateinit var profiles: ProfileStore
         private set
-    var activeProfileId: String? = null
+    @Volatile var activeProfileId: String? = null
         private set
 
     private var activeProfilePolicy: ProfileSessionPolicy? = null
@@ -84,6 +86,7 @@ object PreferenceManager {
                 .putBoolean("profile_upgrade_required", true).commit())
         }
         profiles = ProfileStore(context.getSharedPreferences("private_profiles", Context.MODE_PRIVATE))
+        PrivateThumbnails.init(context, thumbnailCacheCapacity())
         lock()
         subclasses(Pref::class).filter { it.objectInstance != null }.forEach { pref ->
             val prefInstance = pref.objectInstance!! as Pref<Any, *, *>
@@ -143,6 +146,7 @@ object PreferenceManager {
         activeProfilePolicy = null
         liveContext[HOST_NAME.key()] = ""
         liveContext[API_KEY.key()] = ""
+        PrivateThumbnails.revoke()
         ApiClientFactory.cancelAll()
         nl.giejay.android.tv.immich.shared.util.AssetDetailCache.clearSession()
     }
@@ -195,6 +199,7 @@ object PreferenceManager {
         activeProfileId = id
         activeProfilePolicy = current
         activeConnection = suspended.copy()
+        PrivateThumbnails.begin(activeConnection, id)
         return true
     }
 
@@ -206,7 +211,27 @@ object PreferenceManager {
         save(SCREENSAVER_ALBUMS, emptySet())
         activeProfileId = id
         activeProfilePolicy = runCatching { profiles.sessionPolicy(id) }.getOrNull()
-        activeConnection = connection
+        activeConnection = connection.copy()
+        PrivateThumbnails.begin(activeConnection, id)
+    }
+
+    fun thumbnailCacheCapacity(): PrivateThumbnailCache.Capacity = PrivateThumbnailCache.Capacity.fromMiB(
+        runCatching { sharedPreference.getInt("private_thumbnail_cache_mib", 128) }.getOrDefault(128)
+    )
+
+    @Synchronized fun setThumbnailCacheCapacity(expectedProfileId: String, capacity: PrivateThumbnailCache.Capacity) {
+        check(isLoggedId() && activeProfileId == expectedProfileId) { "Unlock this profile first" }
+        check(sharedPreference.edit().putInt("private_thumbnail_cache_mib", (capacity.bytes / (1024 * 1024)).toInt()).commit())
+        PrivateThumbnails.setCapacity(capacity)
+    }
+
+    @Synchronized fun clearThumbnailCache(
+        expectedProfileId: String, expectedConnection: ApiClientConfig, completed: (Boolean) -> Unit
+    ) {
+        check(isLoggedId() && activeProfileId == expectedProfileId && activeConnection === expectedConnection) {
+            "Unlock this profile first"
+        }
+        PrivateThumbnails.clear(completed)
     }
 
     @Synchronized fun activeGraceMinutes(): Int? {

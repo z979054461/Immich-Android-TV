@@ -6,6 +6,7 @@ import android.view.ContextThemeWrapper
 import android.widget.ImageView
 import androidx.leanback.widget.ImageCardView
 import com.bumptech.glide.Glide
+import nl.giejay.android.tv.immich.shared.PrivateThumbnails
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.shared.presenter.AbstractPresenter
 import timber.log.Timber
@@ -46,7 +47,8 @@ open class CardPresenter(context: Context, style: Int = R.style.DefaultCardTheme
                     .centerCrop()
                     .placeholder(R.drawable.image_placeholder)
                     .error(R.drawable.image_placeholder)
-                    .load(it)
+                    .load(PrivateThumbnails.model(it, card.thumbnailVersion))
+                    .listener(PrivateThumbnails.guard())
                     .into(cardView.mainImageView!!)
             } else {
                 cardView.mainImageView!!.scaleType = ImageView.ScaleType.CENTER_INSIDE

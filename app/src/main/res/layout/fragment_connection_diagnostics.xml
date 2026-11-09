@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/tv_background" android:fillViewport="true"
+    android:saveEnabled="false">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="40dp" android:saveEnabled="false">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/diagnostics_title" android:textSize="30sp" android:textColor="@color/screen_white" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/diagnostics_intro"
+            android:textSize="17sp" android:textColor="@color/tv_text_secondary" />
+        <CheckBox android:id="@+id/diagnostics_people" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:minHeight="48dp" android:layout_marginTop="12dp"
+            android:text="@string/diagnostics_include_people" android:textSize="18sp"
+            android:background="@drawable/tv_menu_focus" android:textColor="@color/screen_white" android:saveEnabled="false" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="12dp">
+            <Button android:id="@+id/diagnostics_start" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="56dp" android:text="@string/diagnostics_start" android:textAllCaps="false"
+                android:textSize="18sp" android:background="@drawable/tv_menu_focus" android:textColor="@color/screen_white" />
+            <Button android:id="@+id/diagnostics_cancel" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="56dp" android:text="@string/diagnostics_cancel" android:textAllCaps="false"
+                android:enabled="false" android:layout_marginStart="12dp" android:textSize="18sp"
+                android:background="@drawable/tv_menu_focus" android:textColor="@color/screen_white" />
+            <Button android:id="@+id/diagnostics_back" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="56dp" android:text="@string/diagnostics_back" android:textAllCaps="false"
+                android:layout_marginStart="12dp" android:textSize="18sp"
+                android:background="@drawable/tv_menu_focus" android:textColor="@color/screen_white" />
+        </LinearLayout>
+        <TextView android:id="@+id/diagnostics_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="@string/diagnostics_idle"
+            android:accessibilityLiveRegion="polite" android:textSize="18sp" android:textColor="@color/tv_accent" android:saveEnabled="false" />
+        <TextView android:id="@+id/diagnostics_results" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="17sp"
+            android:focusable="true" android:background="@drawable/tv_menu_focus" android:padding="8dp"
+            android:textColor="@color/screen_white" android:saveEnabled="false" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="@string/diagnostics_photo_notice"
+            android:textSize="16sp" android:textColor="@color/tv_text_secondary" />
+    </LinearLayout>
+</ScrollView>

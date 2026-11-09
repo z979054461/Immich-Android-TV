@@ -16,7 +16,8 @@ fun TimelineAsset.toCard(): Card = Card(
     description = null,
     id = id,
     thumbnailUrl = ApiUtil.getThumbnailUrl(id, "thumbnail"),
-    backgroundUrl = ApiUtil.getThumbnailUrl(id, "preview")
+    backgroundUrl = ApiUtil.getThumbnailUrl(id, "preview"),
+    thumbnailVersion = thumbhash.orEmpty()
 )
 
 /**

@@ -13,8 +13,8 @@ android {
         applicationId "io.github.z979054461.immichtv"
         minSdkVersion 24
         targetSdkVersion 37
-        versionCode 10101
-        versionName "1.1.1-private"
+        versionCode 10200
+        versionName "1.2.0-private"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testOptions.unitTests.includeAndroidResources = true
