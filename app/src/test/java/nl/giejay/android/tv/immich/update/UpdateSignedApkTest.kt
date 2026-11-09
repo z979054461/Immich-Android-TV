@@ -162,7 +162,7 @@ class UpdateSignedApkTest {
         assertTrue("Fixture requires a nonempty DEX payload", compressed > 128)
         for (offset in 0 until bytes.size - 30 - name.size) {
             if (bytes[offset] != 0x50.toByte() || bytes[offset + 1] != 0x4b.toByte() ||
-                bytes[offset + 2] != 3.toByte() || bytes[offset + 3] != 0.toByte()) continue
+                bytes[offset + 2] != 3.toByte() || bytes[offset + 3] != 4.toByte()) continue
             val nameLength = u16(bytes, offset + 26)
             val extraLength = u16(bytes, offset + 28)
             if (nameLength != name.size || !name.indices.all { bytes[offset + 30 + it] == name[it] }) continue

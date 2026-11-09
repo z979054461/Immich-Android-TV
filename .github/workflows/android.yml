@@ -60,6 +60,7 @@ jobs:
         run: |
           python3 scripts/check_private_runtime.py
           python3 scripts/test_check_private_apk.py
+          python3 scripts/test_check_apksig_dex.py
       - name: Prepare pinned public APK verification fixture
         shell: bash
         run: |
