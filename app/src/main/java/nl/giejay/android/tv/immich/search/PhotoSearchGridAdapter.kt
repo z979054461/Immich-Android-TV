@@ -89,7 +89,7 @@ internal class PhotoSearchGridAdapter(
                     (code == KeyEvent.KEYCODE_DPAD_DOWN && index / 4 == (itemCount - 1) / 4)) && leaveGrid(code, index)
         }
         if (sessionValid()) Glide.with(holder.image)
-            .load(PrivateThumbnails.model(ApiUtil.getThumbnailUrl(asset.id, "thumbnail"), asset.thumbhash.orEmpty()))
+            .load(PrivateThumbnails.model(ApiUtil.getThumbnailUrl(asset.id, "thumbnail"), asset.fileModifiedAt?.time?.toString().orEmpty()))
             .listener(PrivateThumbnails.guard())
             .into(holder.image)
         else { Glide.with(holder.image).clear(holder.image); holder.image.setImageDrawable(null) }
