@@ -102,6 +102,8 @@ class TimelineViewModel(
     /** Survives TimelineFragment recreation when returning from the photo slider. */
     var lastSelectedDayKey: String? = null
     var lastSelectedAssetId: String? = null
+    var lastSelectedBucketKey: String? = null
+        private set
 
     /**
      * Memory card to restore after returning from the memory slider. Distinct from mosaic
@@ -287,9 +289,10 @@ class TimelineViewModel(
             Either.Left("Could not read the timeline response. Check the server connection and Immich version, then retry.")
         }
 
-    fun rememberSelection(dayKey: String, assetId: String) {
+    fun rememberSelection(dayKey: String, assetId: String, bucketKey: String? = assetFocusIndex.bucketByAsset[assetId]) {
         lastSelectedDayKey = dayKey
         lastSelectedAssetId = assetId
+        lastSelectedBucketKey = bucketKey
     }
 
     fun rememberSelectionByAssetId(assetId: String) {
@@ -317,7 +320,15 @@ class TimelineViewModel(
                                     { assets ->
                                         failedBuckets.remove(timeBucket)
                                         staleBuckets.remove(timeBucket)
-                                        _bucketAssets.update { current -> current + (timeBucket to assets) }
+                                        _bucketAssets.update { current ->
+                                            TimelineRetention.retain(
+                                                loaded = current + (timeBucket to assets),
+                                                orderedKeys = _buckets.value.map { it.timeBucket },
+                                                incoming = timeBucket,
+                                                focused = lastSelectedBucketKey
+                                            )
+                                        }
+                                        staleBuckets.retainAll(_bucketAssets.value.keys)
                                     }
                                 )
                                 publishError()

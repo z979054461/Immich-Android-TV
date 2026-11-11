@@ -37,7 +37,7 @@ class PhotoSearchViewModelTest {
         return PhotoSearchViewModel(source, session) { session }.also { it.setQuery(query) }
     }
 
-    @Test fun `first request is one page then focus near end loads only one next page`() = runTest {
+    @Test fun `one page is retained and only explicit next loads another page`() = runTest {
         val source = Source()
         var pending: Continuation<PhotoSearchPage>? = null
         source.searchResult = { _, cursor ->
@@ -49,11 +49,14 @@ class PhotoSearchViewModelTest {
         assertEquals(listOf<String?>(null), source.calls.map { it.second })
         vm.onFocused(0)
         assertEquals(1, source.calls.size)
-        vm.onFocused(99); vm.onFocused(99); vm.loadNext()
+        vm.onFocused(99); vm.onFocused(99)
+        assertEquals(1, source.calls.size)
+        vm.loadNext(); vm.loadNext()
         assertEquals(2, source.calls.size)
         assertTrue(vm.state.value.loading)
         pending!!.resume(PhotoSearchPage(listOf(asset("a101")), null))
-        assertEquals(101, vm.state.value.items.size)
+        assertEquals(listOf("a101"), vm.state.value.items.map { it.id })
+        assertTrue(vm.state.value.canLoadPrevious)
         assertFalse(vm.state.value.canLoadMore)
         vm.loadNext()
         assertEquals(2, source.calls.size)
@@ -77,7 +80,7 @@ class PhotoSearchViewModelTest {
         assertTrue(vm.state.value.canLoadMore)
         assertEquals(3, source.calls.size)
         vm.loadNext()
-        assertEquals(listOf("A", "B"), vm.state.value.items.map { it.id })
+        assertEquals(listOf("B"), vm.state.value.items.map { it.id })
         assertFalse(vm.state.value.canLoadMore)
     }
 
@@ -114,7 +117,7 @@ class PhotoSearchViewModelTest {
         val vm = vm(source)
         vm.search(); vm.loadNext(); vm.loadNext(); vm.loadNext()
         assertEquals(3, source.calls.size)
-        assertEquals(3, vm.state.value.items.size)
+        assertEquals(listOf("C"), vm.state.value.items.map { it.id })
         assertEquals(SearchFailure.REPEATED_CURSOR, vm.state.value.failure)
         assertFalse(vm.state.value.canLoadMore)
     }
@@ -196,4 +199,52 @@ class PhotoSearchViewModelTest {
         assertTrue(vm.state.value.items.isEmpty())
         assertTrue(vm.state.value.canLoadMore)
     }
+    @Test fun `previous page refetches the exact cursor and failed previous preserves navigation`() = runTest {
+        val source = Source()
+        var failPrevious = false
+        source.searchResult = { _, cursor ->
+            if (failPrevious && cursor == null) { failPrevious = false; throw SearchException(SearchFailure.CONNECTION) }
+            if (cursor == null) PhotoSearchPage(listOf(asset("A")), "second") else PhotoSearchPage(listOf(asset("B")), null)
+        }
+        val vm = vm(source)
+        vm.search(); vm.loadNext()
+        assertEquals(2, vm.state.value.pageNumber)
+        failPrevious = true
+        vm.loadPrevious()
+        assertEquals(listOf("B"), vm.state.value.items.map { it.id })
+        assertTrue(vm.state.value.retryPrevious)
+        vm.loadPrevious()
+        assertEquals(listOf("A"), vm.state.value.items.map { it.id })
+        assertEquals(1, vm.state.value.pageNumber)
+        assertFalse(vm.state.value.canLoadPrevious)
+        assertTrue(vm.state.value.canLoadMore)
+        assertNull(vm.state.value.failure)
+        vm.loadNext()
+        assertEquals(listOf("B"), vm.state.value.items.map { it.id })
+    }
+
+    @Test fun `many result pages retain only one asset page and a bounded back window`() = runTest {
+        val source = Source()
+        source.searchResult = { _, cursor ->
+            val page = cursor?.toInt() ?: 0
+            PhotoSearchPage((1..100).map { asset("$page-$it") }, (page + 1).toString())
+        }
+        val vm = vm(source)
+        vm.search()
+        repeat(300) { vm.loadNext(); assertEquals(100, vm.state.value.items.size) }
+        var previousCount = 0
+        while (vm.state.value.canLoadPrevious) { vm.loadPrevious(); previousCount++ }
+        assertEquals(PhotoSearchViewModel.MAX_BACK_PAGES, previousCount)
+        assertEquals(100, vm.state.value.items.size)
+    }
+
+    @Test fun `oversized page is rejected rather than retained`() = runTest {
+        val source = Source()
+        source.searchResult = { _, _ -> PhotoSearchPage((1..101).map { asset("a$it") }, null) }
+        val vm = vm(source)
+        vm.search()
+        assertEquals(SearchFailure.INVALID_RESPONSE, vm.state.value.failure)
+        assertTrue(vm.state.value.items.isEmpty())
+    }
+
 }

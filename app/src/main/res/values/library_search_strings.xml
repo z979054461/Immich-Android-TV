@@ -1,0 +1,21 @@
+<resources>
+    <string name="library_album">Album: %1$s</string>
+    <string name="library_city">City: %1$s</string>
+    <string name="library_tag">Tag: %1$s</string>
+    <string name="library_filename">Filename: %1$s</string>
+    <string name="library_any">Any</string>
+    <string name="library_selected">Selected</string>
+    <string name="library_album_title">Find an album</string>
+    <string name="library_city_title">Browse by city</string>
+    <string name="library_tag_title">Browse by tag</string>
+    <string name="library_filename_title">Filename starts with</string>
+    <string name="library_filename_hint">Prefix, for example IMG_</string>
+    <string name="library_filter_names">Type part of a name</string>
+    <string name="library_loading">Loading names from your server…</string>
+    <string name="library_no_matches">No matching names</string>
+    <string name="library_narrow_names">Showing %1$d of %2$d names. Type more to narrow the list.</string>
+    <string name="library_choice_count">%1$d names. Select one to browse its timeline photos.</string>
+    <string name="library_previous_page">Previous page</string>
+    <string name="library_next_page">Next page</string>
+    <string name="library_page_status">Page %1$d · up to 100 photos per page</string>
+</resources>

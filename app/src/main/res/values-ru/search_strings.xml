@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="search_filters">Дата и люди</string>
-    <string name="search_scope">Часовой пояс ТВ: %1$s. Фильтр по дате использует fileCreatedAt, а не группировку по дням на шкале времени. Поиск охватывает материалы, видимые на шкале времени, включая материалы партнёров, показ которых включён на сервере; настройки партнёров шкалы времени и исключения альбомов не применяются. Метаданные: asset.read; миниатюры/воспроизведение: asset.view. Воспроизводятся только загруженные результаты.</string>
+    <string name="search_filters">Поиск в медиатеке</string>
+    <string name="search_scope">Часовой пояс ТВ: %1$s. Фильтр по дате использует fileCreatedAt, а не группировку по дням на шкале времени. Поиск охватывает материалы, видимые на шкале времени, включая материалы партнёров, показ которых включён на сервере; настройки партнёров шкалы времени и исключения альбомов не применяются. Метаданные: asset.read; миниатюры/воспроизведение: asset.view. Воспроизводятся только фото с текущей страницы. Используйте кнопки перехода между страницами; можно вернуться на 128 предыдущих страниц.</string>
     <string name="search_start">С: %1$s</string>
     <string name="search_end">По: %1$s</string>
     <string name="search_people">Выбрано людей: %1$d</string>
@@ -10,19 +10,19 @@
     <string name="search_match_any">Люди: хотя бы ОДИН</string>
     <string name="search_run">Найти</string>
     <string name="search_clear">Сбросить фильтры</string>
-    <string name="search_more">Загрузить следующую страницу (до 100)</string>
+    <string name="search_more">Следующая страница (до 100 фото)</string>
     <string name="search_retry">Повторить загрузку страницы</string>
-    <string name="search_loaded">Загружено: %1$d</string>
-    <string name="search_loading">Загрузка… · Загружено: %1$d</string>
-    <string name="search_choose_condition">Выберите дату или человека, затем нажмите «Найти». Обе даты включены в диапазон по часовому поясу ТВ.</string>
+    <string name="search_loaded">Фото на этой странице: %1$d</string>
+    <string name="search_loading">Загрузка… · На текущей странице: %1$d</string>
+    <string name="search_choose_condition">Выберите альбом, город, тег, начало имени файла, дату или человека. Даты включены в диапазон по часовому поясу ТВ.</string>
     <string name="search_invalid_dates">Начальная дата должна быть не позже конечной.</string>
     <string name="search_ready">Условия изменены. Нажмите «Найти», чтобы загрузить подходящие фото.</string>
     <string name="search_empty">Подходящих фото нет.</string>
     <string name="search_end_results">Конец результатов</string>
     <string name="search_locked">Профиль заблокирован. Разблокируйте его, чтобы продолжить поиск.</string>
-    <string name="search_permission">Для поиска нужно разрешение asset.read. Проверьте API-ключ этого профиля.</string>
+    <string name="search_permission">Доступ запрещён. Проверьте разрешение asset.read, album.read или tag.read для выбранной функции.</string>
     <string name="search_people_permission">Для списка людей нужно разрешение person.read. Фильтр по дате работает и без него.</string>
-    <string name="search_unsupported">Для фильтра по дате/людям нужен Immich 3.2 или новее. Поиск без фильтров не выполнялся.</string>
+    <string name="search_unsupported">Для фильтрации медиатеки нужен Immich 3.2 или новее. Поиск без фильтров не выполнялся.</string>
     <string name="search_version_unavailable">Не удалось проверить версию сервера. Проверьте соединение и повторите попытку.</string>
     <string name="search_invalid_response">Неожиданный ответ сервера. Загруженные результаты сохранены; повторите попытку или начните поиск заново.</string>
     <string name="search_repeated_cursor">Сервер повторил токен страницы. Загрузка страниц остановлена. Запустите поиск заново, чтобы обновить результаты.</string>
@@ -44,5 +44,5 @@
     <string name="search_people_hint">Выберите одного или нескольких людей. ВСЕ означает присутствие всех выбранных людей; хотя бы ОДИН означает присутствие минимум одного.</string>
     <string name="search_photo_result">Фото %1$d</string>
     <string name="search_video_result">Видео %1$d</string>
-    <string name="search_opening">Открытие загруженных результатов…</string>
+    <string name="search_opening">Открытие фото с этой страницы…</string>
 </resources>

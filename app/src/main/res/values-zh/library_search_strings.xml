@@ -1,0 +1,21 @@
+<resources>
+    <string name="library_album">相册：%1$s</string>
+    <string name="library_city">城市：%1$s</string>
+    <string name="library_tag">标签：%1$s</string>
+    <string name="library_filename">文件名：%1$s</string>
+    <string name="library_any">不限</string>
+    <string name="library_selected">已选</string>
+    <string name="library_album_title">查找相册</string>
+    <string name="library_city_title">按城市浏览</string>
+    <string name="library_tag_title">按标签浏览</string>
+    <string name="library_filename_title">文件名开头</string>
+    <string name="library_filename_hint">输入前缀，例如 IMG_</string>
+    <string name="library_filter_names">输入部分名称</string>
+    <string name="library_loading">正在从你的服务器加载名称…</string>
+    <string name="library_no_matches">没有匹配的名称</string>
+    <string name="library_narrow_names">显示 %2$d 个名称中的前 %1$d 个，请输入更多文字缩小范围。</string>
+    <string name="library_choice_count">共 %1$d 个名称，选择后浏览其中的时间线照片。</string>
+    <string name="library_previous_page">上一页</string>
+    <string name="library_next_page">下一页</string>
+    <string name="library_page_status">第 %1$d 页 · 每页最多 100 张</string>
+</resources>

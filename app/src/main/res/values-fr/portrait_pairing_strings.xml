@@ -1,0 +1,4 @@
+<resources>
+    <string name="smart_portrait_pairing">Association intelligente des portraits</string>
+    <string name="smart_portrait_pairing_desc">Avec la fusion activée, associe les photos proches par personnes, jour, ville et heure de prise de vue. La photo associée peut avancer ; les autres diapositives conservent leur ordre. Sinon, seules les photos adjacentes sont associées.</string>
+</resources>

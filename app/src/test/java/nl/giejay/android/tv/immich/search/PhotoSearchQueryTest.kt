@@ -72,4 +72,26 @@ class PhotoSearchQueryTest {
         assertEquals("PhotoSearchQuery(redacted)", query.toString())
         assertEquals("FilterSearchRequest(redacted)", query.request().toString())
     }
+    @Test fun `album city tag filename combine as structured filters without widening visibility`() {
+        val id = ids.first()
+        val q = PhotoSearchQuery(album = id, tag = id, city = "Synthetic City", fileNamePrefix = "IMG_%", albumName = "Synthetic Album")
+        assertTrue(q.hasCondition)
+        val json = JsonParser.parseString(Gson().toJson(q.request())).asJsonObject.getAsJsonObject("filter")
+        assertEquals(id.toString(), json.getAsJsonObject("albumIds").getAsJsonArray("any")[0].asString)
+        assertEquals(id.toString(), json.getAsJsonObject("tagIds").getAsJsonArray("any")[0].asString)
+        assertEquals("Synthetic City", json.getAsJsonObject("city")["eq"].asString)
+        assertEquals("IMG_%", json.getAsJsonObject("originalFileName")["startsWith"].asString)
+        assertEquals("timeline", json.getAsJsonObject("visibility")["eq"].asString)
+        assertFalse(json.toString().contains("Synthetic Album"))
+        assertEquals("PhotoSearchQuery(redacted)", q.toString())
+    }
+
+    @Test fun `directory name filtering is case insensitive and retains stable IDs`() {
+        val items = listOf(LibraryChoice("1", "Trip Album"), LibraryChoice("2", "Family"), LibraryChoice("3", "旅行"))
+        assertEquals(listOf("1"), filterLibraryChoices(items, "  TRIP ").map { it.key })
+        assertEquals(listOf("3"), filterLibraryChoices(items, "旅行").map { it.key })
+        assertEquals(items, filterLibraryChoices(items, ""))
+        assertEquals("LibraryChoice(redacted)", items.first().toString())
+    }
+
 }

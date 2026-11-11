@@ -1,0 +1,21 @@
+<resources>
+    <string name="library_album">Album : %1$s</string>
+    <string name="library_city">Ville : %1$s</string>
+    <string name="library_tag">Étiquette : %1$s</string>
+    <string name="library_filename">Fichier : %1$s</string>
+    <string name="library_any">Tous</string>
+    <string name="library_selected">Sélectionné</string>
+    <string name="library_album_title">Trouver un album</string>
+    <string name="library_city_title">Parcourir par ville</string>
+    <string name="library_tag_title">Parcourir par étiquette</string>
+    <string name="library_filename_title">Le nom du fichier commence par</string>
+    <string name="library_filename_hint">Préfixe, par exemple IMG_</string>
+    <string name="library_filter_names">Saisissez une partie du nom</string>
+    <string name="library_loading">Chargement des noms depuis votre serveur…</string>
+    <string name="library_no_matches">Aucun nom correspondant</string>
+    <string name="library_narrow_names">Affichage de %1$d noms sur %2$d. Précisez votre recherche pour réduire la liste.</string>
+    <string name="library_choice_count">%1$d noms. Sélectionnez-en un pour parcourir ses photos visibles dans la chronologie.</string>
+    <string name="library_previous_page">Page précédente</string>
+    <string name="library_next_page">Page suivante</string>
+    <string name="library_page_status">Page %1$d · 100 photos maximum par page</string>
+</resources>

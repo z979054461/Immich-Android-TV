@@ -52,6 +52,9 @@ internal data class FilterServerVersion(val major: Int?, val minor: Int?, val pa
 
 @Keep
 internal interface PhotoSearchService {
+    @GET("albums") suspend fun albums(): Response<List<LibraryAlbum>>
+    @GET("tags") suspend fun tags(): Response<List<LibraryTag>>
+    @GET("search/suggestions") suspend fun cities(@Query("type") type: String = "city"): Response<List<String>>
     @GET("server/version") suspend fun version(): Response<FilterServerVersion>
     @POST("search/metadata") suspend fun search(@Body request: FilterSearchRequest): Response<FilterSearchResponse>
     @GET("people") suspend fun people(@Query("page") page: Int, @Query("size") size: Int = 100): Response<FilterPeopleResponse>
@@ -67,6 +70,7 @@ internal data class PhotoPeoplePage(val items: List<Person>, val hasNextPage: Bo
 internal interface PhotoSearchSource {
     suspend fun search(query: PhotoSearchQuery, cursor: String?): PhotoSearchPage
     suspend fun people(page: Int): PhotoPeoplePage
+    suspend fun choices(kind: LibraryChoiceKind): List<LibraryChoice> = throw SearchException(SearchFailure.UNSUPPORTED)
 }
 
 /** This instance is bound to one immutable unlock session, including version capability results. */
@@ -116,6 +120,26 @@ internal class PhotoSearchRepository(
             response.people ?: throw SearchException(SearchFailure.INVALID_RESPONSE),
             response.hasNextPage ?: throw SearchException(SearchFailure.INVALID_RESPONSE)
         )
+    }
+
+    override suspend fun choices(kind: LibraryChoiceKind): List<LibraryChoice> {
+        ensureCapability()
+        val values = when (kind) {
+            LibraryChoiceKind.ALBUM -> request(SearchFailure.CONNECTION) { service.albums() }.map {
+                val id = it.id ?: throw SearchException(SearchFailure.INVALID_RESPONSE)
+                val name = it.albumName ?: throw SearchException(SearchFailure.INVALID_RESPONSE)
+                LibraryChoice(id.toString(), name)
+            }
+            LibraryChoiceKind.TAG -> request(SearchFailure.CONNECTION) { service.tags() }.map {
+                val id = it.id ?: throw SearchException(SearchFailure.INVALID_RESPONSE)
+                val name = it.value?.takeIf(String::isNotBlank) ?: it.name ?: throw SearchException(SearchFailure.INVALID_RESPONSE)
+                LibraryChoice(id.toString(), name)
+            }
+            LibraryChoiceKind.CITY -> request(SearchFailure.CONNECTION) { service.cities() }
+                .filter(String::isNotBlank).map { LibraryChoice(it, it) }
+        }
+        requireSession()
+        return values.distinctBy { it.key }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
     }
 
     private suspend fun <T> request(

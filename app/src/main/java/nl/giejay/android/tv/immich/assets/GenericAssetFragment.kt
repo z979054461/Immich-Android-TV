@@ -35,6 +35,7 @@ import nl.giejay.android.tv.immich.shared.prefs.SLIDER_DPAD_SEEK_IN_VIDEO
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MAX_CUT_OFF_HEIGHT
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MAX_CUT_OFF_WIDTH
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MERGE_PORTRAIT_PHOTOS
+import nl.giejay.android.tv.immich.shared.prefs.SLIDER_SMART_PORTRAIT_PAIRING
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_ONLY_USE_THUMBNAILS
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_PAN_EFFECT
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_SHOW_DATE_TOP_LEFT
@@ -136,14 +137,16 @@ abstract class GenericAssetFragment : VerticalCardGridFragment<Asset>() {
         lifecycleScope.launch(Dispatchers.Default) {
             val toSliderItems = assets.toSliderItems(
                 keepOrder = true,
-                mergePortrait = PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS)
+                mergePortrait = PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS),
+                smartPortrait = PreferenceManager.get(SLIDER_SMART_PORTRAIT_PAIRING)
             )
             val loadMore: LoadMore = suspend {
                 val moreAssets = loadMoreAssets()
                 // also load the data in the overview
                 setDataOnMain(moreAssets)
                 LoadMoreResult(
-                    moreAssets.toSliderItems(true, PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS)),
+                    moreAssets.toSliderItems(true, PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS),
+                        smartPortrait = PreferenceManager.get(SLIDER_SMART_PORTRAIT_PAIRING)),
                     moreAssets.isNotEmpty() && !allPagesLoaded
                 )
             }
