@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="search_filters">Date et personnes</string>
-    <string name="search_scope">Fuseau horaire du téléviseur : %1$s. Le filtre par date utilise fileCreatedAt, et non les groupes de jours de la chronologie. La recherche couvre les éléments visibles dans la chronologie, y compris ceux des partenaires dont l’affichage est activé sur le serveur ; les réglages des partenaires de la chronologie et d’exclusion des albums ne s’appliquent pas. Métadonnées : asset.read ; miniatures/lecture : asset.view. La lecture utilise uniquement les résultats chargés.</string>
+    <string name="search_filters">Rechercher dans la photothèque</string>
+    <string name="search_scope">Fuseau horaire du téléviseur : %1$s. Le filtre par date utilise fileCreatedAt, et non les groupes de jours de la chronologie. La recherche couvre les éléments visibles dans la chronologie, y compris ceux des partenaires dont l’affichage est activé sur le serveur ; les réglages des partenaires de la chronologie et d’exclusion des albums ne s’appliquent pas. Métadonnées : asset.read ; miniatures/lecture : asset.view. La lecture utilise uniquement la page actuelle. Utilisez les boutons Page précédente et Page suivante ; jusqu’à 128 pages précédentes peuvent être rechargées.</string>
     <string name="search_start">Du : %1$s</string>
     <string name="search_end">Au : %1$s</string>
     <string name="search_people">Personnes : %1$d sélectionnées</string>
@@ -10,19 +10,19 @@
     <string name="search_match_any">Personnes : au moins UNE</string>
     <string name="search_run">Rechercher</string>
     <string name="search_clear">Effacer les filtres</string>
-    <string name="search_more">Charger la page suivante (100 max.)</string>
+    <string name="search_more">Page suivante (100 photos maximum)</string>
     <string name="search_retry">Réessayer cette page</string>
-    <string name="search_loaded">Résultats chargés : %1$d</string>
-    <string name="search_loading">Chargement… · %1$d chargés</string>
-    <string name="search_choose_condition">Choisissez une date ou une personne, puis Rechercher. Les deux dates sont incluses dans le fuseau horaire du téléviseur.</string>
+    <string name="search_loaded">Photos sur cette page : %1$d</string>
+    <string name="search_loading">Chargement… · %1$d photos sur la page actuelle</string>
+    <string name="search_choose_condition">Choisissez un album, une ville, une étiquette, un préfixe de fichier, une date ou une personne. Les dates sont incluses dans le fuseau horaire du téléviseur.</string>
     <string name="search_invalid_dates">La date de début doit être antérieure ou égale à la date de fin.</string>
     <string name="search_ready">Filtres modifiés. Sélectionnez Rechercher pour charger les photos correspondantes.</string>
     <string name="search_empty">Aucune photo correspondante.</string>
     <string name="search_end_results">Fin des résultats</string>
     <string name="search_locked">Profil verrouillé. Déverrouillez-le pour rechercher.</string>
-    <string name="search_permission">La recherche nécessite la permission asset.read. Vérifiez la clé API de ce profil.</string>
+    <string name="search_permission">Action non autorisée. Vérifiez asset.read, album.read ou tag.read selon la fonction choisie.</string>
     <string name="search_people_permission">La liste des personnes nécessite person.read. Le filtre par date fonctionne sans cette permission.</string>
-    <string name="search_unsupported">Le filtrage par date/personne nécessite Immich 3.2 ou une version ultérieure. Aucune recherche sans filtre n’a été effectuée.</string>
+    <string name="search_unsupported">Le filtrage de la photothèque nécessite Immich 3.2 ou une version ultérieure. Aucune recherche sans filtre n’a été effectuée.</string>
     <string name="search_version_unavailable">Impossible de vérifier la version du serveur. Vérifiez la connexion, puis réessayez.</string>
     <string name="search_invalid_response">Réponse inattendue du serveur. Les résultats chargés sont conservés ; réessayez ou relancez la recherche.</string>
     <string name="search_repeated_cursor">Le serveur a répété un jeton de page. Le chargement des pages est arrêté. Relancez la recherche pour actualiser les résultats.</string>
@@ -44,5 +44,5 @@
     <string name="search_people_hint">Sélectionnez une ou plusieurs personnes. TOUTES exige la présence de toutes les personnes choisies ; au moins UNE exige la présence d’au moins une personne.</string>
     <string name="search_photo_result">Photo %1$d</string>
     <string name="search_video_result">Vidéo %1$d</string>
-    <string name="search_opening">Ouverture des résultats chargés…</string>
+    <string name="search_opening">Ouverture des photos de cette page…</string>
 </resources>

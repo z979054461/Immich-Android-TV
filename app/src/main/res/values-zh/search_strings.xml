@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="search_filters">搜索图库</string>
-    <string name="search_scope">电视时区：%1$s。日期筛选 fileCreatedAt，不等同于时间线的日期分组。仅搜索普通时间线可见内容，含服务器启用的伙伴照片，不采用时间线伙伴开关或排除相册设置。元数据需 asset.read，缩略图和播放需 asset.view。播放仅使用已加载结果。</string>
+    <string name="search_scope">电视时区：%1$s。日期筛选 fileCreatedAt，不等同于时间线的日期分组。仅搜索普通时间线可见内容，含服务器启用的伙伴照片，不采用时间线伙伴开关或排除相册设置。元数据需 asset.read，缩略图和播放需 asset.view。播放仅使用已加载结果。 搜索结果按页显示，播放仅使用当前页；可通过上一页、下一页翻页，最多回溯 128 页。</string>
     <string name="search_start">开始：%1$s</string>
     <string name="search_end">结束：%1$s</string>
     <string name="search_people">已选 %1$d 位人物</string>
@@ -10,10 +10,10 @@
     <string name="search_match_any">人物：包含任意一人</string>
     <string name="search_run">搜索</string>
     <string name="search_clear">清除条件</string>
-    <string name="search_more">再加载一页（最多 100 项）</string>
+    <string name="search_more">下一页（最多 100 张）</string>
     <string name="search_retry">重试本页</string>
-    <string name="search_loaded">已加载 %1$d 项</string>
-    <string name="search_loading">正在加载… · 已加载 %1$d 项</string>
+    <string name="search_loaded">本页照片：%1$d</string>
+    <string name="search_loading">正在加载… · 当前页 %1$d 张</string>
     <string name="search_choose_condition">选择相册、城市、标签、文件名前缀、日期或人物。日期包含电视时区当天。</string>
     <string name="search_invalid_dates">开始日期不能晚于结束日期。</string>
     <string name="search_ready">条件已修改，选择“搜索”加载匹配照片。</string>
@@ -44,5 +44,5 @@
     <string name="search_people_hint">可选多个人物。“所有人”要求同时出现，“任意一人”只需出现一位。</string>
     <string name="search_photo_result">照片 %1$d</string>
     <string name="search_video_result">视频 %1$d</string>
-    <string name="search_opening">正在打开已加载结果…</string>
+    <string name="search_opening">正在打开本页照片…</string>
 </resources>

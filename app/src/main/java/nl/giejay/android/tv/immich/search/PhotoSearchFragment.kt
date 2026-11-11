@@ -371,9 +371,14 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
 
     private fun privateTextInput() = EditText(requireContext()).apply {
         isSaveEnabled = false
-        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        }
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        imeOptions = EditorInfo.IME_ACTION_DONE
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            imeOptions = imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        }
         setSingleLine(true)
     }
 

@@ -1,0 +1,21 @@
+<resources>
+    <string name="library_album">Альбом: %1$s</string>
+    <string name="library_city">Город: %1$s</string>
+    <string name="library_tag">Тег: %1$s</string>
+    <string name="library_filename">Имя файла: %1$s</string>
+    <string name="library_any">Без ограничений</string>
+    <string name="library_selected">Выбрано</string>
+    <string name="library_album_title">Найти альбом</string>
+    <string name="library_city_title">Просмотр по городам</string>
+    <string name="library_tag_title">Просмотр по тегам</string>
+    <string name="library_filename_title">Начало имени файла</string>
+    <string name="library_filename_hint">Префикс, например IMG_</string>
+    <string name="library_filter_names">Введите часть названия</string>
+    <string name="library_loading">Загрузка названий с вашего сервера…</string>
+    <string name="library_no_matches">Совпадений нет</string>
+    <string name="library_narrow_names">Показано %1$d из %2$d названий. Уточните запрос, чтобы сократить список.</string>
+    <string name="library_choice_count">Названий: %1$d. Выберите одно, чтобы просмотреть соответствующие фото, видимые на шкале времени.</string>
+    <string name="library_previous_page">Предыдущая страница</string>
+    <string name="library_next_page">Следующая страница</string>
+    <string name="library_page_status">Страница %1$d · до 100 фото на странице</string>
+</resources>
