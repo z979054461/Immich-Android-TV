@@ -113,6 +113,7 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         tag = searchButton(context, "", "library_tag")
         fileName = searchButton(context, "", "library_filename")
         filterRows = listOf(listOf(start, end, people), listOf(album, city, tag), listOf(fileName, match, search, clear))
+        listOf(album, city, tag, fileName).forEach { it.setSingleLine(true); it.ellipsize = android.text.TextUtils.TruncateAt.END }
         filterRows.forEach { buttons ->
             val row = LinearLayout(context).apply { isSaveEnabled = false }
             buttons.forEach { row.addView(it, LinearLayout.LayoutParams(0, dp(52), 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }) }
@@ -232,9 +233,9 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         start.text = getString(R.string.search_start, q.start?.toString() ?: getString(R.string.search_any_date))
         end.text = getString(R.string.search_end, q.endInclusive?.toString() ?: getString(R.string.search_any_date))
         people.text = getString(R.string.search_people, q.people.size)
-        album.text = getString(R.string.library_album, getString(if (q.album == null) R.string.library_any else R.string.library_selected))
+        album.text = getString(R.string.library_album, q.albumName ?: getString(if (q.album == null) R.string.library_any else R.string.library_selected))
         city.text = getString(R.string.library_city, q.city ?: getString(R.string.library_any))
-        tag.text = getString(R.string.library_tag, getString(if (q.tag == null) R.string.library_any else R.string.library_selected))
+        tag.text = getString(R.string.library_tag, q.tagName ?: getString(if (q.tag == null) R.string.library_any else R.string.library_selected))
         fileName.text = getString(R.string.library_filename, q.fileNamePrefix ?: getString(R.string.library_any))
         match.setText(if (q.match == PeopleMatch.ALL) R.string.search_match_all else R.string.search_match_any)
         // Keep the focused control reachable while busy; the ViewModel rejects repeated
@@ -422,8 +423,8 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
             if (!model.checkSession()) return
             val q = model.state.value.query
             model.setQuery(when (kind) {
-                LibraryChoiceKind.ALBUM -> q.copy(album = choice?.key?.let(UUID::fromString))
-                LibraryChoiceKind.TAG -> q.copy(tag = choice?.key?.let(UUID::fromString))
+                LibraryChoiceKind.ALBUM -> q.copy(album = choice?.key?.let(UUID::fromString), albumName = choice?.label)
+                LibraryChoiceKind.TAG -> q.copy(tag = choice?.key?.let(UUID::fromString), tagName = choice?.label)
                 LibraryChoiceKind.CITY -> q.copy(city = choice?.key)
             })
             if (choice != null) model.search()

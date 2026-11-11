@@ -128,4 +128,20 @@ class PhotoSearchContractTest {
             assertEquals(0, server.requestCount)
         } finally { server.shutdown() }
     }
+    @Test fun `directory endpoints remain on configured API and tag labels use full path`() = runBlocking {
+        fixture { server, repository ->
+            server.enqueue(version())
+            server.enqueue(MockResponse().setBody("""[{"id":"11111111-1111-4111-8111-111111111111","albumName":"Synthetic Album"}]"""))
+            assertEquals("Synthetic Album", repository.choices(LibraryChoiceKind.ALBUM).single().label)
+            assertEquals("/synthetic/api/server/version", server.takeRequest().path)
+            assertEquals("/synthetic/api/albums", server.takeRequest().path)
+            server.enqueue(MockResponse().setBody("""[{"id":"11111111-1111-4111-8111-111111111111","name":"Child","value":"Parent/Child"}]"""))
+            assertEquals("Parent/Child", repository.choices(LibraryChoiceKind.TAG).single().label)
+            assertEquals("/synthetic/api/tags", server.takeRequest().path)
+            server.enqueue(MockResponse().setBody("""["Synthetic City","Synthetic City",""]"""))
+            assertEquals(listOf("Synthetic City"), repository.choices(LibraryChoiceKind.CITY).map { it.key })
+            assertEquals("/synthetic/api/search/suggestions?type=city", server.takeRequest().path)
+        }
+    }
+
 }

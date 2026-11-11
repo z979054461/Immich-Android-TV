@@ -17,7 +17,9 @@ data class PhotoSearchQuery(
     val album: UUID? = null,
     val city: String? = null,
     val tag: UUID? = null,
-    val fileNamePrefix: String? = null
+    val fileNamePrefix: String? = null,
+    val albumName: String? = null,
+    val tagName: String? = null
 ) {
     val hasCondition: Boolean get() = start != null || endInclusive != null || people.isNotEmpty() || album != null || !city.isNullOrBlank() || tag != null || !fileNamePrefix.isNullOrBlank()
     val valid: Boolean get() = (start == null || endInclusive == null || !start.isAfter(endInclusive)) &&
