@@ -2,6 +2,12 @@ package nl.giejay.android.tv.immich.search
 
 import android.app.AlertDialog
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.text.InputType
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import java.util.UUID
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -60,6 +66,12 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
     private lateinit var search: Button
     private lateinit var clear: Button
     private lateinit var more: Button
+    private lateinit var previous: Button
+    private lateinit var album: Button
+    private lateinit var city: Button
+    private lateinit var tag: Button
+    private lateinit var fileName: Button
+    private lateinit var filterRows: List<List<Button>>
     private lateinit var status: TextView
     private lateinit var grid: VerticalGridView
     private lateinit var cards: PhotoSearchGridAdapter
@@ -96,13 +108,24 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         match = searchButton(context, "", "search_match")
         search = searchButton(context, getString(R.string.search_run), "search_run")
         clear = searchButton(context, getString(R.string.search_clear), "search_clear")
-        listOf(listOf(start, end, people), listOf(match, search, clear)).forEach { buttons ->
+        album = searchButton(context, "", "library_album")
+        city = searchButton(context, "", "library_city")
+        tag = searchButton(context, "", "library_tag")
+        fileName = searchButton(context, "", "library_filename")
+        filterRows = listOf(listOf(start, end, people), listOf(album, city, tag), listOf(fileName, match, search, clear))
+        filterRows.forEach { buttons ->
             val row = LinearLayout(context).apply { isSaveEnabled = false }
             buttons.forEach { row.addView(it, LinearLayout.LayoutParams(0, dp(52), 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }) }
             root.addView(row)
         }
-        listOf(start, end, people).forEachIndexed { i, button -> button.nextFocusDownId = listOf(match, search, clear)[i].id }
-        listOf(match, search, clear).forEachIndexed { i, button -> button.nextFocusUpId = listOf(start, end, people)[i].id }
+        filterRows.forEachIndexed { rowIndex, row -> row.forEachIndexed { column, button ->
+            filterRows.getOrNull(rowIndex + 1)?.let { button.nextFocusDownId = it[column.coerceAtMost(it.lastIndex)].id }
+            filterRows.getOrNull(rowIndex - 1)?.let { button.nextFocusUpId = it[column.coerceAtMost(it.lastIndex)].id }
+        } }
+        album.setOnClickListener { pickLibrary(LibraryChoiceKind.ALBUM) }
+        city.setOnClickListener { pickLibrary(LibraryChoiceKind.CITY) }
+        tag.setOnClickListener { pickLibrary(LibraryChoiceKind.TAG) }
+        fileName.setOnClickListener { pickFileName() }
         start.setOnClickListener { pickDate(true) }
         end.setOnClickListener { pickDate(false) }
         people.setOnClickListener { pickPeople() }
@@ -119,8 +142,8 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
             { index -> model.state.value.items.getOrNull(index)?.let { model.selectedAssetId = it.id }; model.onFocused(index) },
             { openPlayer(it) },
             { direction, index ->
-                if (direction == KeyEvent.KEYCODE_DPAD_UP) listOf(match, search, clear)[index.coerceAtMost(2)].requestFocus()
-                else more.visibility == View.VISIBLE && more.requestFocus()
+                if (direction == KeyEvent.KEYCODE_DPAD_UP) filterRows.last()[index.coerceAtMost(filterRows.last().lastIndex)].requestFocus()
+                else when { more.visibility == View.VISIBLE -> more.requestFocus(); previous.visibility == View.VISIBLE -> previous.requestFocus(); else -> false }
             }
         )
         grid = VerticalGridView(context).apply {
@@ -132,7 +155,13 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         more = searchButton(context, getString(R.string.search_more), "search_more")
         more.setOnClickListener { model.loadNext() }
         more.nextFocusUpId = grid.id
-        root.addView(more, LinearLayout.LayoutParams(-1, dp(48)))
+        previous = searchButton(context, getString(R.string.library_previous_page), "library_previous")
+        previous.setOnClickListener { model.loadPrevious() }
+        previous.nextFocusUpId = grid.id
+        val paging = LinearLayout(context).apply { isSaveEnabled = false }
+        paging.addView(previous, LinearLayout.LayoutParams(0, dp(48), 1f))
+        paging.addView(more, LinearLayout.LayoutParams(0, dp(48), 1f))
+        root.addView(paging, LinearLayout.LayoutParams(-1, dp(48)))
         return root
     }
 
@@ -196,13 +225,17 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         if (!model.checkSession()) {
             cards.submit(emptyList(), model.queryGeneration)
             status.setText(R.string.search_locked)
-            listOf(start, end, people, match, search, clear, more).forEach { it.isEnabled = false }
+            (filterRows.flatten() + listOf(more, previous)).forEach { it.isEnabled = false }
             return
         }
         val q = state.query
         start.text = getString(R.string.search_start, q.start?.toString() ?: getString(R.string.search_any_date))
         end.text = getString(R.string.search_end, q.endInclusive?.toString() ?: getString(R.string.search_any_date))
         people.text = getString(R.string.search_people, q.people.size)
+        album.text = getString(R.string.library_album, getString(if (q.album == null) R.string.library_any else R.string.library_selected))
+        city.text = getString(R.string.library_city, q.city ?: getString(R.string.library_any))
+        tag.text = getString(R.string.library_tag, getString(if (q.tag == null) R.string.library_any else R.string.library_selected))
+        fileName.text = getString(R.string.library_filename, q.fileNamePrefix ?: getString(R.string.library_any))
         match.setText(if (q.match == PeopleMatch.ALL) R.string.search_match_all else R.string.search_match_any)
         // Keep the focused control reachable while busy; the ViewModel rejects repeated
         // Search/Continue taps. Disabling it would let Leanback pick an unrelated result.
@@ -217,14 +250,15 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
             state.items.isEmpty() && !state.canLoadMore -> getString(R.string.search_empty)
             else -> getString(R.string.search_loaded, state.items.size) + if (!state.canLoadMore) " · " + getString(R.string.search_end_results) else ""
         }
-        val expectedGeneration = model.queryGeneration
+        val expectedGeneration = model.queryGeneration * 1_000_003L + state.pageNumber
+        val expectedQueryGeneration = model.queryGeneration
         val expectedCards = cards
         val expectedGrid = grid
         resultSelection.beginQuery(expectedView, expectedGeneration)
         cards.submit(state.items, expectedGeneration) { commit ->
             expectedGrid.post {
                 fun isCurrentCommit() = readyView === expectedView && view === expectedView && cards === expectedCards && grid === expectedGrid &&
-                    expectedCards.isCurrentSubmission(commit) && model.queryGeneration == expectedGeneration && model.checkSession()
+                    expectedCards.isCurrentSubmission(commit) && model.queryGeneration == expectedQueryGeneration && model.state.value.pageNumber == state.pageNumber && model.checkSession()
                 if (!isCurrentCommit()) return@post
                 notifyViewReady(expectedView)
                 if (!isCurrentCommit()) return@post
@@ -242,13 +276,20 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
         more.visibility = if (showContinue) View.VISIBLE else View.GONE
         more.nextFocusUpId = if (state.items.isEmpty()) search.id else grid.id
         more.isEnabled = !openingPlayer
-        more.setText(if (state.failure != null) R.string.search_retry else R.string.search_more)
+        more.setText(if (state.failure != null && !state.retryPrevious) R.string.search_retry else R.string.library_next_page)
+        if (!state.canLoadPrevious && previous.hasFocus()) search.requestFocus()
+        previous.visibility = if (state.canLoadPrevious) View.VISIBLE else View.GONE
+        previous.isEnabled = !openingPlayer
+        previous.setText(if (state.failure != null && state.retryPrevious) R.string.search_retry else R.string.library_previous_page)
+        previous.nextFocusUpId = if (state.items.isEmpty()) search.id else grid.id
+        if (state.started) status.text = getString(R.string.library_page_status, state.pageNumber) + " · " + status.text
         val nextTarget = when {
             state.items.isNotEmpty() -> grid.id
             showContinue -> more.id
+            state.canLoadPrevious -> previous.id
             else -> View.NO_ID
         }
-        listOf(match, search, clear).forEach { it.nextFocusDownId = nextTarget }
+        filterRows.last().forEach { it.nextFocusDownId = nextTarget }
     }
 
     private fun pickDate(isStart: Boolean) {
@@ -325,6 +366,119 @@ class PhotoSearchFragment : Fragment(), BrowseSupportFragment.MainFragmentAdapte
             }
         }
         if (!model.people.value.started) model.loadPeople()
+    }
+
+    private fun privateTextInput() = EditText(requireContext()).apply {
+        isSaveEnabled = false
+        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        setSingleLine(true)
+    }
+
+    private fun pickFileName() {
+        if (!model.checkSession() || dialog != null) return
+        val input = privateTextInput().apply {
+            setText(model.state.value.query.fileNamePrefix.orEmpty())
+            hint = getString(R.string.library_filename_hint)
+        }
+        val popup = AlertDialog.Builder(requireContext()).setTitle(R.string.library_filename_title).setView(input)
+            .setPositiveButton(R.string.search_apply) { _, _ ->
+                model.setQuery(model.state.value.query.copy(fileNamePrefix = input.text.toString().trim().ifEmpty { null }))
+            }
+            .setNeutralButton(R.string.search_clear) { _, _ -> model.setQuery(model.state.value.query.copy(fileNamePrefix = null)) }
+            .setNegativeButton(android.R.string.cancel, null).create()
+        popup.setOnDismissListener { input.text.clear(); dialog = null }
+        dialog = popup
+        popup.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        popup.show()
+        popup.window?.setLayout(dp(600), ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    /** Directory metadata only; choosing an entry requests a single asset page from this NAS. */
+    private fun pickLibrary(kind: LibraryChoiceKind) {
+        if (!model.checkSession() || dialog != null) return
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL; isSaveEnabled = false
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+        }
+        val input = privateTextInput().apply { hint = getString(R.string.library_filter_names) }
+        val hint = TextView(requireContext()).apply { isSaveEnabled = false; setText(R.string.library_loading) }
+        val list = ListView(requireContext()).apply { isSaveEnabled = false }
+        val labels = object : ArrayAdapter<String>(requireContext(), android.R.layout.simple_list_item_1, mutableListOf<String>()) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View = super.getView(position, convertView, parent).apply { isSaveEnabled = false }
+        }
+        list.adapter = labels
+        content.addView(input); content.addView(hint)
+        content.addView(list, LinearLayout.LayoutParams(-1, dp(240)))
+        val retry = searchButton(requireContext(), getString(R.string.search_retry), "library_retry")
+        retry.visibility = View.GONE
+        content.addView(retry, LinearLayout.LayoutParams(-1, dp(48)))
+        var choices = emptyList<LibraryChoice>()
+        var visible = emptyList<LibraryChoice>()
+        var loaded = false
+        var job: Job? = null
+        fun applyChoice(choice: LibraryChoice?) {
+            if (!model.checkSession()) return
+            val q = model.state.value.query
+            model.setQuery(when (kind) {
+                LibraryChoiceKind.ALBUM -> q.copy(album = choice?.key?.let(UUID::fromString))
+                LibraryChoiceKind.TAG -> q.copy(tag = choice?.key?.let(UUID::fromString))
+                LibraryChoiceKind.CITY -> q.copy(city = choice?.key)
+            })
+            if (choice != null) model.search()
+        }
+        val title = when (kind) {
+            LibraryChoiceKind.ALBUM -> R.string.library_album_title
+            LibraryChoiceKind.CITY -> R.string.library_city_title
+            LibraryChoiceKind.TAG -> R.string.library_tag_title
+        }
+        val popup = AlertDialog.Builder(requireContext()).setTitle(title).setView(content)
+            .setNeutralButton(R.string.search_clear) { _, _ -> applyChoice(null) }
+            .setNegativeButton(android.R.string.cancel, null).create()
+        fun renderChoices() {
+            val matches = filterLibraryChoices(choices, input.text.toString())
+            visible = matches.take(200)
+            labels.clear(); labels.addAll(visible.map { it.label }); labels.notifyDataSetChanged()
+            if (loaded) hint.text = when {
+                matches.isEmpty() -> getString(R.string.library_no_matches)
+                matches.size > visible.size -> getString(R.string.library_narrow_names, visible.size, matches.size)
+                else -> getString(R.string.library_choice_count, matches.size)
+            }
+        }
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderChoices() }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+        list.setOnItemClickListener { _, _, position, _ ->
+            visible.getOrNull(position)?.let { applyChoice(it); popup.dismiss() }
+        }
+        fun load() {
+            if (job?.isActive == true || !model.checkSession()) return
+            hint.setText(R.string.library_loading); retry.visibility = View.GONE
+            job = viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val result = model.choices(kind)
+                    if (dialog !== popup || !model.checkSession()) return@launch
+                    choices = result; loaded = true; renderChoices()
+                    if (visible.isNotEmpty()) list.requestFocus()
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) {
+                    if (dialog === popup && model.checkSession()) {
+                        hint.text = failureText((error as? SearchException)?.failure ?: SearchFailure.CONNECTION)
+                        retry.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
+        retry.setOnClickListener { load() }
+        popup.setOnDismissListener { job?.cancel(); choices = emptyList(); visible = emptyList(); labels.clear(); input.text.clear(); dialog = null }
+        dialog = popup
+        popup.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        popup.show()
+        popup.window?.setLayout(dp(650), ViewGroup.LayoutParams.WRAP_CONTENT)
+        load()
     }
 
     private fun openPlayer(asset: Asset) {

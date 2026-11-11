@@ -1,0 +1,4 @@
+<resources>
+    <string name="smart_portrait_pairing">Smart portrait pairing</string>
+    <string name="smart_portrait_pairing_desc">When portrait merging is on, pair nearby album photos by people, capture day, city and time. A matching photo may move forward; other slides keep their order. Off keeps adjacent pairing.</string>
+</resources>

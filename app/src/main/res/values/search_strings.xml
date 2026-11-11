@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="search_filters">Date &amp; people</string>
+    <string name="search_filters">Search library</string>
     <string name="search_scope">TV time zone: %1$s. Dates filter fileCreatedAt, not timeline day groups. Search covers timeline-visible assets, including server-enabled partners; timeline partner and album-exclusion settings do not apply. Metadata: asset.read; thumbnails/playback: asset.view. Playback uses loaded results only.</string>
     <string name="search_start">From: %1$s</string>
     <string name="search_end">Through: %1$s</string>
@@ -14,15 +14,15 @@
     <string name="search_retry">Retry this page</string>
     <string name="search_loaded">Loaded %1$d</string>
     <string name="search_loading">Loading… · Loaded %1$d</string>
-    <string name="search_choose_condition">Choose a date or person, then Search. Both dates are inclusive in the TV time zone.</string>
+    <string name="search_choose_condition">Choose an album, city, tag, filename prefix, date or person. Dates are inclusive in the TV time zone.</string>
     <string name="search_invalid_dates">The start date must be on or before the end date.</string>
     <string name="search_ready">Filters changed. Select Search to load matching photos.</string>
     <string name="search_empty">No matching photos.</string>
     <string name="search_end_results">End of results</string>
     <string name="search_locked">Profile locked. Unlock again to search.</string>
-    <string name="search_permission">Search needs asset.read permission. Check this profile’s API key.</string>
+    <string name="search_permission">This action is not allowed. Check asset.read, album.read or tag.read for the selected feature.</string>
     <string name="search_people_permission">People need person.read permission. Date filtering still works without it.</string>
-    <string name="search_unsupported">Date/person filtering requires Immich 3.2 or newer. No unfiltered search was run.</string>
+    <string name="search_unsupported">Library filtering requires Immich 3.2 or newer. No unfiltered search was run.</string>
     <string name="search_version_unavailable">Could not verify the server version. Retry after checking the connection.</string>
     <string name="search_invalid_response">Unexpected server response. Loaded results are kept; retry or restart the search.</string>
     <string name="search_repeated_cursor">The server repeated a page token. Paging stopped. Restart Search to refresh.</string>

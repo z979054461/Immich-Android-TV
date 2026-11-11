@@ -1084,4 +1084,41 @@ class TimelineViewModelTest {
         assertNull(vm.error.value)
     }
 
+    @Test
+    fun `browsing many months evicts distant payloads and reloads them on demand`() = runTest {
+        val months = (0..11).map { YearMonth.of(2026, 12).minusMonths(it.toLong()).atDay(1).toString() }
+        val fetches = mutableMapOf<String, Int>()
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(months.map { TimeBucketSummary(it, 1) }) },
+            fetchBucket = { key ->
+                fetches[key] = (fetches[key] ?: 0) + 1
+                Either.Right(listOf(asset(key, "${key}T12:00:00Z")))
+            }
+        )
+        vm.loadBucketList(eagerMonths = 0)
+        for (month in months) vm.loadBucket(month)
+        assertEquals(4, vm.bucketAssets.value.size)
+        assertFalse(months.first() in vm.bucketAssets.value)
+        assertNull(vm.bucketKeyForAsset(months.first()))
+        vm.loadBucket(months.first())
+        assertEquals(2, fetches[months.first()])
+        assertEquals(months.first(), vm.bucketKeyForAsset(months.first()))
+        assertEquals(4, vm.bucketAssets.value.size)
+    }
+
+    @Test
+    fun `new month loads do not evict the currently focused month`() = runTest {
+        val months = (0..11).map { YearMonth.of(2026, 12).minusMonths(it.toLong()).atDay(1).toString() }
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(months.map { TimeBucketSummary(it, 1) }) },
+            fetchBucket = { key -> Either.Right(listOf(asset(key, "${key}T12:00:00Z"))) }
+        )
+        vm.loadBucketList()
+        vm.rememberSelectionByAssetId(months.first())
+        for (month in months.drop(1)) vm.loadBucket(month)
+        assertTrue(months.first() in vm.bucketAssets.value)
+        assertEquals(months.first(), vm.bucketKeyForAsset(months.first()))
+        assertEquals(4, vm.bucketAssets.value.size)
+    }
+
 }

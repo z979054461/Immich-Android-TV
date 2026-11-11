@@ -16,6 +16,9 @@ internal data class PhotoSearchState(
     val started: Boolean = false,
     val loading: Boolean = false,
     val canLoadMore: Boolean = false,
+    val canLoadPrevious: Boolean = false,
+    val pageNumber: Int = 1,
+    val retryPrevious: Boolean = false,
     val failure: SearchFailure? = null,
     val locked: Boolean = false
 )
@@ -44,7 +47,10 @@ internal class PhotoSearchViewModel(
     private var searchJob: Job? = null
     private var peopleJob: Job? = null
     private var cursor: String? = null
-    private val consumedCursors = mutableSetOf<String?>()
+    private val consumedCursors = linkedSetOf<String?>()
+    private val previousCursors = mutableListOf<String?>()
+    private var currentPageCursor: String? = null
+    private var hasLoadedPage = false
     private var peoplePage = 1
     var selectedAssetId: String? = null
 
@@ -61,6 +67,9 @@ internal class PhotoSearchViewModel(
         peopleJob?.cancel()
         cursor = null
         consumedCursors.clear()
+        previousCursors.clear()
+        currentPageCursor = null
+        hasLoadedPage = false
         selectedAssetId = null
         mutableState.value = PhotoSearchState(locked = true)
         mutablePeople.value = PhotoPeopleState(hasNextPage = false)
@@ -73,6 +82,9 @@ internal class PhotoSearchViewModel(
         searchJob?.cancel()
         cursor = null
         consumedCursors.clear()
+        previousCursors.clear()
+        currentPageCursor = null
+        hasLoadedPage = false
         selectedAssetId = null
         mutableState.value = PhotoSearchState(query = query.copy(people = query.people.toSet()))
     }
@@ -83,33 +95,67 @@ internal class PhotoSearchViewModel(
         searchJob?.cancel()
         cursor = null
         consumedCursors.clear()
+        previousCursors.clear()
+        currentPageCursor = null
+        hasLoadedPage = false
         selectedAssetId = null
         mutableState.value = PhotoSearchState(query = state.value.query, started = true, canLoadMore = true)
         loadNext()
     }
 
-    fun onFocused(index: Int) {
-        if (index >= 0 && state.value.items.size - index <= PREFETCH_THRESHOLD && state.value.failure == null) loadNext()
+    // Search uses explicit pages: focusing the final tile must not replace it underneath the user.
+    fun onFocused(@Suppress("UNUSED_PARAMETER") index: Int) = Unit
+
+    suspend fun choices(kind: LibraryChoiceKind): List<LibraryChoice> {
+        if (!checkSession()) throw CancellationException("Search session ended")
+        val requestGeneration = generation
+        val result = source.choices(kind)
+        if (!accept(requestGeneration)) throw CancellationException("Search changed")
+        return result
     }
 
-    /** Exactly one page per call. Empty/duplicate-only pages still expose an explicit Continue. */
     fun loadNext() {
         if (!checkSession()) return
         val before = state.value
         if (!before.started || before.loading || !before.canLoadMore || before.failure == SearchFailure.REPEATED_CURSOR) return
+        loadPage(cursor, backwards = false)
+    }
+
+    fun loadPrevious() {
+        if (!checkSession() || state.value.loading || previousCursors.isEmpty()) return
+        loadPage(previousCursors.last(), backwards = true)
+    }
+
+    /** Keep one asset page and at most 128 opaque back cursors, not every photo visited. */
+    private fun loadPage(requestCursor: String?, backwards: Boolean) {
+        val before = state.value
         val requestGeneration = generation
-        val requestCursor = cursor
         mutableState.value = before.copy(loading = true, failure = null)
         searchJob = viewModelScope.launch {
             try {
                 val page = source.search(before.query, requestCursor)
                 if (!accept(requestGeneration)) return@launch
-                val merged = (state.value.items + page.items).distinctBy { it.id }
+                if (page.items.size > PAGE_SIZE) throw SearchException(SearchFailure.INVALID_RESPONSE)
+                if (backwards) {
+                    previousCursors.removeAt(previousCursors.lastIndex)
+                    consumedCursors.clear()
+                    consumedCursors.addAll(previousCursors)
+                } else if (hasLoadedPage) {
+                    previousCursors.add(currentPageCursor)
+                    if (previousCursors.size > MAX_BACK_PAGES) previousCursors.removeAt(0)
+                }
                 consumedCursors.add(requestCursor)
+                if (consumedCursors.size > MAX_BACK_PAGES + 1) consumedCursors.remove(consumedCursors.first())
                 val repeated = page.nextCursor != null && page.nextCursor in consumedCursors
+                val pageNumber = if (backwards) (before.pageNumber - 1).coerceAtLeast(1)
+                    else if (hasLoadedPage) before.pageNumber + 1 else 1
+                currentPageCursor = requestCursor
+                hasLoadedPage = true
                 cursor = page.nextCursor
+                selectedAssetId = null
                 mutableState.value = state.value.copy(
-                    items = merged, loading = false,
+                    retryPrevious = false, items = page.items.distinctBy { it.id }, loading = false,
+                    pageNumber = pageNumber, canLoadPrevious = previousCursors.isNotEmpty(),
                     canLoadMore = page.nextCursor != null && !repeated,
                     failure = if (repeated) SearchFailure.REPEATED_CURSOR else null
                 )
@@ -118,9 +164,9 @@ internal class PhotoSearchViewModel(
                 throw cancelled
             } catch (error: Exception) {
                 if (accept(requestGeneration)) mutableState.value = state.value.copy(
-                    loading = false, failure = (error as? SearchException)?.failure ?: SearchFailure.CONNECTION
+                    loading = false, retryPrevious = backwards, failure = (error as? SearchException)?.failure ?: SearchFailure.CONNECTION
                 )
-                // Cursor and successfully loaded assets remain unchanged for an explicit retry.
+                // Do not advance the cursor or drop current photos on a failed page request.
             }
         }
     }
@@ -167,5 +213,5 @@ internal class PhotoSearchViewModel(
         }
     }
 
-    companion object { const val PREFETCH_THRESHOLD = 12 }
+    companion object { const val PAGE_SIZE = 100; const val MAX_BACK_PAGES = 128 }
 }

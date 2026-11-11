@@ -200,6 +200,10 @@ data object SLIDER_MERGE_PORTRAIT_PHOTOS : BooleanPref(true,
     ImmichApplication.appContext!!.getString(R.string.merge_portrait_photos),
     ImmichApplication.appContext!!.getString(R.string.merge_portrait_photos_desc))
 
+data object SLIDER_SMART_PORTRAIT_PAIRING : BooleanPref(false,
+    ImmichApplication.appContext!!.getString(R.string.smart_portrait_pairing),
+    ImmichApplication.appContext!!.getString(R.string.smart_portrait_pairing_desc))
+
 data object SLIDER_MAX_CUT_OFF_WIDTH : IntSeekbarPref(20,
     ImmichApplication.appContext!!.getString(R.string.safe_center_crop_max_cutoff_height),
     ImmichApplication.appContext!!.getString(R.string.safe_center_crop_max_cutoff_height_desc))
@@ -405,6 +409,7 @@ data object ViewSlideshowDisplayPrefScreen : PrefScreen(ImmichApplication.appCon
             SLIDER_DPAD_SEEK_IN_VIDEO,
             SLIDER_LOAD_EDITED_PHOTO,
             SLIDER_MERGE_PORTRAIT_PHOTOS,
+            SLIDER_SMART_PORTRAIT_PAIRING,
             SLIDER_GLIDE_TRANSFORMATION
         ))
     )

@@ -14,66 +14,17 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-fun List<Asset>.toSliderItems(keepOrder: Boolean, mergePortrait: Boolean): List<SliderItemViewHolder> {
+fun List<Asset>.toSliderItems(
+    keepOrder: Boolean,
+    mergePortrait: Boolean,
+    smartPortrait: Boolean = false
+): List<SliderItemViewHolder> {
     if (!mergePortrait) {
         return this.map { SliderItemViewHolder(it.toSliderItem()) }
     }
-    if (!keepOrder) {
-        val portraits = this.filter { it.isPortraitImage() }
-        val queue = portraits.toMutableList()
-        val portraitSliders = mutableListOf<SliderItemViewHolder>()
-
-        while (queue.isNotEmpty()) {
-            val first = queue.removeAt(0)
-            val firstDate = first.fileModifiedAt?.time
-
-            // pick the second portrait image that is most furthest away in time to the first one
-            val second = if (first.people?.isNotEmpty() == true && firstDate != null) {
-                // Try strict match: same people size and city
-                queue.filter { candidate ->
-                    candidate.people?.size == first.people.size &&
-                            candidate.people.firstOrNull()?.id == first.people.first().id &&
-                            candidate.exifInfo?.city != null && first.exifInfo?.city != null &&
-                            candidate.exifInfo.city == first.exifInfo.city &&
-                            candidate.exifInfo.dateTimeOriginal != null
-                }.maxByOrNull { candidate ->
-                    kotlin.math.abs(candidate.exifInfo!!.dateTimeOriginal!!.time - firstDate)
-                } ?: // Fallback: only same people id
-                queue.filter { candidate ->
-                    candidate.people?.firstOrNull()?.id == first.people.first().id &&
-                            candidate.exifInfo?.dateTimeOriginal != null
-                }.maxByOrNull { candidate ->
-                    kotlin.math.abs(candidate.exifInfo!!.dateTimeOriginal!!.time - firstDate)
-                }
-            } else null // no people or date info, or simply no match with the first, just add a random one next to it
-
-            if (second != null) {
-                portraitSliders.add(SliderItemViewHolder(first.toSliderItem(), second.toSliderItem()))
-                queue.remove(second)
-            } else {
-                portraitSliders.add(SliderItemViewHolder(first.toSliderItem(), queue.removeFirstOrNull()?.toSliderItem()))
-            }
-        }
-
-        val landscapeItems = this - portraits.toSet()
-        return (landscapeItems.map { SliderItemViewHolder(it.toSliderItem()) } + portraitSliders).shuffled()
-    }
-
-    val queue = this.toMutableList()
-    val items = mutableListOf<SliderItemViewHolder>()
-
-    while (queue.isNotEmpty()) {
-        val first = queue.removeAt(0)
-        val second = queue.firstOrNull()
-
-        if (first.isPortraitImage() && second?.isPortraitImage() == true) {
-            items.add(SliderItemViewHolder(first.toSliderItem(), second.toSliderItem()))
-            queue.remove(second)
-        } else {
-            items.add(SliderItemViewHolder(first.toSliderItem()))
-        }
-    }
-    return items
+    val pairs = pairPortraitAssets(keepOrder = keepOrder && !smartPortrait)
+    val items = pairs.map { SliderItemViewHolder(it.first.toSliderItem(), it.second?.toSliderItem()) }
+    return if (keepOrder) items else items.shuffled()
 }
 
 fun Asset.toSliderItem(): SliderItem {

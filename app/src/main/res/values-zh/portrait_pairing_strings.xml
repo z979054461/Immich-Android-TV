@@ -1,0 +1,4 @@
+<resources>
+    <string name="smart_portrait_pairing">智能竖图配对</string>
+    <string name="smart_portrait_pairing_desc">开启竖图合并后，按人物、拍摄日期、城市和时间为相册中附近的照片配对。匹配照片可能提前，其他幻灯片保持顺序；关闭后仅配对相邻照片。</string>
+</resources>

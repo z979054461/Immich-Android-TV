@@ -317,7 +317,15 @@ class TimelineViewModel(
                                     { assets ->
                                         failedBuckets.remove(timeBucket)
                                         staleBuckets.remove(timeBucket)
-                                        _bucketAssets.update { current -> current + (timeBucket to assets) }
+                                        _bucketAssets.update { current ->
+                                            TimelineRetention.retain(
+                                                loaded = current + (timeBucket to assets),
+                                                orderedKeys = _buckets.value.map { it.timeBucket },
+                                                incoming = timeBucket,
+                                                focused = lastSelectedAssetId?.let { assetFocusIndex.bucketByAsset[it] }
+                                            )
+                                        }
+                                        staleBuckets.retainAll(_bucketAssets.value.keys)
                                     }
                                 )
                                 publishError()
