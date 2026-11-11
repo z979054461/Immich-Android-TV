@@ -1,10 +1,12 @@
-# 1.4.0（开发中，未发布）
+# Immich TV Private 1.4.0
+
+[下载 APK 与对应源码](https://github.com/z979054461/Immich-Android-TV/releases/tag/v1.4.0-private)。
 
 - 新增相册检索、相册内文件名搜索和城市/标签筛选。
 - 新增可选智能竖图配对，默认保留原有顺序。
 - 限制长期时间线浏览保留的月份数据，离开后可按需重新加载。
 
-验证完成后发布。超大单月和电视实机表现仍需验证。
+
 
 # Immich TV Private 1.3.0
 

@@ -2,9 +2,9 @@
 
 基于 [Immich Android TV 6.2.0](https://github.com/giejay/Immich-Android-TV/tree/6.2.0) 的非官方 Android TV 客户端，连接自托管 Immich，可与上游应用并存。
 
-[下载 1.3.0 APK 与对应源码](https://github.com/z979054461/Immich-Android-TV/releases/tag/v1.3.0-private) · [更新记录](RELEASE_NOTES.md)
+[下载 1.4.0 APK 与对应源码](https://github.com/z979054461/Immich-Android-TV/releases/tag/v1.4.0-private) · [更新记录](RELEASE_NOTES.md)
 
-已发布版本为 1.3.0 预发布版；本分支开发 1.4.0，尚未发布或完成电视实机验收。
+当前版本为 1.4.0。
 
 ## 功能
 
