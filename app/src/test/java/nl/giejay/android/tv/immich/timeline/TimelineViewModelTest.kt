@@ -1121,4 +1121,25 @@ class TimelineViewModelTest {
         assertEquals(4, vm.bucketAssets.value.size)
     }
 
+    @Test
+    fun `slider return coordinates restore an asset from an evicted month`() = runTest {
+        val months = (0..11).map { YearMonth.of(2026, 12).minusMonths(it.toLong()).atDay(1).toString() }
+        val vm = TimelineViewModel(
+            fetchBuckets = { Either.Right(months.map { TimeBucketSummary(it, 1) }) },
+            fetchBucket = { key -> Either.Right(listOf(asset(key, "${key}T12:00:00Z"))) }
+        )
+        vm.loadBucketList()
+        for (month in months.drop(1)) {
+            vm.loadBucket(month)
+            vm.rememberSelectionByAssetId(month)
+        }
+        assertNull(vm.bucketKeyForAsset(months.first()))
+        // The slider still has the photo and its original server bucket coordinates.
+        vm.rememberSelection(months.first(), months.first(), months.first())
+        assertEquals(months.first(), vm.lastSelectedBucketKey)
+        vm.loadBucket(vm.lastSelectedBucketKey!!)
+        assertEquals(months.first(), vm.bucketKeyForAsset(vm.lastSelectedAssetId!!))
+        assertEquals(months.first(), vm.lastSelectedDayKey)
+    }
+
 }

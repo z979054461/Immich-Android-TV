@@ -995,7 +995,8 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
         val month = viewModel.lastSelectedDayKey?.let { day ->
             runCatching { TimelineViewModel.monthBucketKey(LocalDate.parse(day)) }.getOrNull()
         }
-        val bucketKey = month?.let(viewModel::resolveBucketKey)
+        val bucketKey = viewModel.lastSelectedBucketKey?.takeIf { key -> viewModel.buckets.value.any { it.timeBucket == key } }
+            ?: month?.let(viewModel::resolveBucketKey)
         if (bucketKey == null) {
             // Only a completed, successful index can establish that this month disappeared.
             if (!viewModel.initialLoadComplete.value || viewModel.isLoading.value) return
@@ -1180,6 +1181,14 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
             val initialAssets = viewModel.assetsAroundBucket(bucketKey)
             if (initialAssets.isEmpty()) return@launch
 
+            // Slideshow entries may outlive the bounded timeline month cache. Keep only
+            // their return coordinates here, so Back can reload the exact evicted month.
+            val sliderPositions = java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
+            initialAssets.forEach { asset ->
+                viewModel.bucketKeyForAsset(asset.id)?.let { key ->
+                    sliderPositions[asset.id] = asset.localCaptureDate().toString() to key
+                }
+            }
             val sliderItems = initialAssets.pmap { it.toSliderItemViewHolder() }
             val startIndex = sliderItems.indexOfFirst { it.ids().contains(assetId) }.coerceAtLeast(0)
 
@@ -1196,6 +1205,7 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                 lastBucketKey = next.timeBucket
                 val items = viewModel.bucketAssets.value[next.timeBucket].orEmpty()
                     .filter { it.id !in knownIds }
+                    .onEach { asset -> sliderPositions[asset.id] = asset.localCaptureDate().toString() to next.timeBucket }
                     .pmap { it.toSliderItemViewHolder() }
                 LoadMoreResult(items, items.isNotEmpty() && viewModel.nextBucketAfter(next.timeBucket) != null)
             }
@@ -1216,7 +1226,9 @@ class TimelineFragment : BrandedSupportFragment(), BrowseSupportFragment.MainFra
                         viewModel.applyLeaveOffSnapshot(
                             TimelineLeaveOff.afterOpeningMosaic(item.mainItem.id)
                         )
-                        viewModel.rememberSelectionByAssetId(item.mainItem.id)
+                        sliderPositions[item.mainItem.id]?.let { (day, month) ->
+                            viewModel.rememberSelection(day, item.mainItem.id, month)
+                        } ?: viewModel.rememberSelectionByAssetId(item.mainItem.id)
                     },
                     animationSpeedMillis = PreferenceManager.get(SLIDER_ANIMATION_SPEED),
                     maxCutOffHeight = PreferenceManager.get(SLIDER_MAX_CUT_OFF_HEIGHT),
